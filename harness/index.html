@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Free Kick Sim Harness</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #10161a;
+        --panel: rgba(16, 22, 26, 0.86);
+        --line: #2a353b;
+        --text: #e6ece8;
+        --muted: #9aa7a0;
+        --goal: #3ccf6e;
+        --save: #ff5b4f;
+        --blocked: #4f9dff;
+        --miss: #9aa09c;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.45 system-ui, sans-serif; overflow: hidden; }
+      #view { position: fixed; inset: 0; }
+      .panel { position: fixed; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; backdrop-filter: blur(6px); }
+      #results { top: 12px; left: 12px; width: 300px; max-height: calc(100% - 420px); overflow: auto; }
+      #results h2 { margin: 0; font-size: 22px; letter-spacing: 0.02em; }
+      #results .tag { color: var(--muted); margin-bottom: 8px; }
+      #results dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0 0 8px; font-variant-numeric: tabular-nums; }
+      #results dt { color: var(--muted); }
+      #results dd { margin: 0; }
+      #results ol { margin: 0; padding-left: 18px; color: var(--muted); font-variant-numeric: tabular-nums; }
+      #checks { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+      #checks div { display: flex; justify-content: space-between; gap: 8px; }
+      #checks .bad { color: var(--save); }
+      #checks .ok { color: var(--muted); }
+      #pads { bottom: 64px; left: 12px; display: flex; gap: 12px; }
+      .pad-wrap { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+      .pad-label { color: var(--muted); font-size: 12px; }
+      .pad { position: relative; width: 150px; height: 325px; border-radius: 18px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); touch-action: none; cursor: crosshair; }
+      .pad canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+      #timeline { bottom: 12px; left: 12px; right: 260px; display: flex; gap: 10px; align-items: center; padding: 8px 12px; }
+      #timeline input[type='range'] { flex: 1; }
+      #clock { min-width: 120px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+      button { background: #26323a; color: var(--text); border: 1px solid #3a4850; border-radius: 6px; padding: 5px 10px; font: inherit; cursor: pointer; }
+      button:hover { background: #2f3d46; }
+      button.live { background: #4a2a12; border-color: #8a4d1f; }
+      #banner { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); font-size: 20px; font-weight: 600; padding: 6px 16px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); pointer-events: none; opacity: 0; transition: opacity 0.2s; }
+      #banner.show { opacity: 1; }
+      .goal { color: var(--goal); }
+      .save { color: var(--save); }
+      .blocked { color: var(--blocked); }
+      .miss { color: var(--miss); }
+      .lil-gui.root { --width: 260px; max-height: calc(100vh - 24px); overflow: auto; }
+      @media (max-width: 900px) {
+        #results { width: 220px; }
+        .pad { width: 110px; height: 238px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="view"></div>
+    <div id="results" class="panel"></div>
+    <div id="pads" class="panel">
+      <div class="pad-wrap"><div class="pad-label">Shooter flick ↑</div><div id="kick-pad" class="pad"></div></div>
+      <div class="pad-wrap"><div class="pad-label">Keeper flick</div><div id="keeper-pad" class="pad"></div></div>
+    </div>
+    <div id="timeline" class="panel">
+      <button id="play">Pause</button>
+      <button id="replay">Replay</button>
+      <button id="live" class="live" title="Run-up and flight in real time; react on the keeper pad">Live keeper</button>
+      <input id="scrub" type="range" step="1" />
+      <span id="clock"></span>
+    </div>
+    <div id="banner"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

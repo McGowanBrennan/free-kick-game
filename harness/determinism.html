@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Determinism Check</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; padding: 16px; background: #0f1412; color: #e6ece8; font: 14px/1.5 system-ui, sans-serif; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      #summary { margin: 8px 0 16px; font-weight: 600; }
+      .pass { color: #6fdc8c; }
+      .fail { color: #ff7b72; }
+      table { border-collapse: collapse; width: 100%; max-width: 720px; }
+      td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid #26302b; font-variant-numeric: tabular-nums; }
+      code { font-size: 12px; color: #9fb0a7; word-break: break-all; }
+    </style>
+  </head>
+  <body>
+    <h1>Cross-engine determinism</h1>
+    <div>Re-runs the golden scenarios generated in Node (<code>npm run golden</code>) in this browser's JS engine. Open it in iOS Safari to check JavaScriptCore.</div>
+    <div id="summary"></div>
+    <table id="table"></table>
+    <p><code id="ua"></code></p>
+    <script type="module" src="/src/determinism.ts"></script>
+  </body>
+</html>

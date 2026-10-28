@@ -1,0 +1,461 @@
+{
+  "params": {
+    "gravity": 9.81,
+    "dragK": 0.01,
+    "magnusK": 0.0042,
+    "spinDecayPerTick": 0.9989588756797245,
+    "groundRestitution": 0.55,
+    "groundTangential": 0.7,
+    "rollDecel": 0.5,
+    "rollSpinDecayPerTick": 0.991701292638876,
+    "postRestitution": 0.65,
+    "postTangential": 0.9,
+    "postSpinRetain": 0.5,
+    "wallRestitution": 0.4,
+    "wallTangential": 0.8,
+    "minSpeed": 14,
+    "maxSpeed": 32,
+    "powerExponent": 1.3,
+    "vRef": 27,
+    "maxSpin": 60,
+    "curlCompensation": 1,
+    "overhitThreshold": 0.85,
+    "overhitDeg": 40,
+    "aimOutsidePost": 1.5,
+    "maxTargetHeight": 3.4,
+    "diveAutoTime": 1,
+    "keeperWindup": 0.08,
+    "diveBaseTime": 0.45,
+    "diveTimePerMeter": 0.15,
+    "diveTimePerHeight": 0.15,
+    "highReachScale": 0.85,
+    "diveHold": 0.25,
+    "diveFall": 0.35,
+    "minHandReach": 0.6,
+    "maxHandReach": 3.3,
+    "lowHandY": 0.3,
+    "highHandY": 2.45,
+    "jumpHandY": 2.75,
+    "setReachX": 1,
+    "setReachY": 2.5,
+    "setHandSpeed": 6,
+    "stanceReachX": 0.8,
+    "stanceReachY": 2.3,
+    "stanceHandSpeed": 4,
+    "catchMaxSpeed": 22,
+    "catchMaxStretch": 0.9,
+    "parryRestitution": 0.5,
+    "parryTangential": 0.3,
+    "weakGlancing": 0.3,
+    "weakKeepMin": 0.6,
+    "weakKeepMax": 0.85,
+    "weakDeflect": 0.25,
+    "wallJumpDelay": 0.1,
+    "wallJumpHeight": 0.45,
+    "wallJumpDuration": 0.5
+  },
+  "cases": [
+    {
+      "name": "penalty-centre-no-flick",
+      "setup": {
+        "spot": {
+          "category": "penalty",
+          "x": 0,
+          "z": 11,
+          "distance": 11,
+          "maxWall": 0,
+          "keeperX": 0
+        },
+        "wall": null
+      },
+      "launch": {
+        "pos": {
+          "x": 0,
+          "y": 0.11,
+          "z": 11
+        },
+        "vel": {
+          "x": 0.7864852039981277,
+          "y": 3.949204393575296,
+          "z": -21.628343109948517
+        },
+        "spin": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        }
+      },
+      "keeper": null,
+      "hash": 3928528868,
+      "outcome": "save",
+      "tag": "caught"
+    },
+    {
+      "name": "penalty-corner-anticipated",
+      "setup": {
+        "spot": {
+          "category": "penalty",
+          "x": 0,
+          "z": 11,
+          "distance": 11,
+          "maxWall": 0,
+          "keeperX": 0
+        },
+        "wall": null
+      },
+      "launch": {
+        "pos": {
+          "x": 0,
+          "y": 0.11,
+          "z": 11
+        },
+        "vel": {
+          "x": -7.541542759799549,
+          "y": 3.3182495304498167,
+          "z": -26.760313018643572
+        },
+        "spin": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        }
+      },
+      "keeper": {
+        "vx": 0.2887017381079466,
+        "vy": -0.1319716260700214,
+        "durMs": 150,
+        "flickTick": -72
+      },
+      "hash": 189175319,
+      "outcome": "save",
+      "tag": "parried"
+    },
+    {
+      "name": "box-angle-curl",
+      "setup": {
+        "spot": {
+          "category": "inside_box",
+          "x": 7,
+          "z": 13,
+          "distance": 14.7648230602334,
+          "maxWall": 0,
+          "keeperX": 0.5623960105182064
+        },
+        "wall": null
+      },
+      "launch": {
+        "pos": {
+          "x": 7,
+          "y": 0.11,
+          "z": 13
+        },
+        "vel": {
+          "x": -12.49759702196405,
+          "y": 5.463767754717609,
+          "z": -19.747336797631817
+        },
+        "spin": {
+          "x": 0,
+          "y": 51.42857142857143,
+          "z": 0
+        }
+      },
+      "keeper": {
+        "vx": 0.25249290466935853,
+        "vy": -0.18922798500124063,
+        "durMs": 150,
+        "flickTick": 84
+      },
+      "hash": 4195578366,
+      "outcome": "goal",
+      "tag": "clean"
+    },
+    {
+      "name": "edge-wall-curl",
+      "setup": {
+        "spot": {
+          "category": "outside_box",
+          "x": -6,
+          "z": 20,
+          "distance": 20.8806130178211,
+          "maxWall": 4,
+          "keeperX": -0.26658816759338944
+        },
+        "wall": {
+          "size": 4,
+          "offset": 0
+        }
+      },
+      "launch": {
+        "pos": {
+          "x": -6,
+          "y": 0.11,
+          "z": 20
+        },
+        "vel": {
+          "x": 1.5637852590655157,
+          "y": 6.220152086684619,
+          "z": -24.163283793434253
+        },
+        "spin": {
+          "x": 0,
+          "y": -51.42857142857143,
+          "z": 0
+        }
+      },
+      "keeper": {
+        "vx": 0,
+        "vy": 0,
+        "durMs": 80,
+        "flickTick": 72
+      },
+      "hash": 1148410721,
+      "outcome": "blocked",
+      "tag": "wall"
+    },
+    {
+      "name": "edge-wall-low",
+      "setup": {
+        "spot": {
+          "category": "outside_box",
+          "x": 4,
+          "z": 21,
+          "distance": 21.37755832643195,
+          "maxWall": 4,
+          "keeperX": 0.16953378149670328
+        },
+        "wall": {
+          "size": 4,
+          "offset": 0.5
+        }
+      },
+      "launch": {
+        "pos": {
+          "x": 4,
+          "y": 0.11,
+          "z": 21
+        },
+        "vel": {
+          "x": -2.5149094694250094,
+          "y": 5.036802320555329,
+          "z": -26.406549428962595
+        },
+        "spin": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        }
+      },
+      "keeper": {
+        "vx": 0,
+        "vy": 0,
+        "durMs": 80,
+        "flickTick": 48
+      },
+      "hash": 3215393661,
+      "outcome": "blocked",
+      "tag": "wall"
+    },
+    {
+      "name": "long-range-dip",
+      "setup": {
+        "spot": {
+          "category": "long_range",
+          "x": 3,
+          "z": 31,
+          "distance": 31.144823004794873,
+          "maxWall": 2,
+          "keeperX": 0.06950717799223316
+        },
+        "wall": {
+          "size": 2,
+          "offset": 0
+        }
+      },
+      "launch": {
+        "pos": {
+          "x": 3,
+          "y": 0.11,
+          "z": 31
+        },
+        "vel": {
+          "x": 0.7761020709984963,
+          "y": 12.776093368191095,
+          "z": -28.234183250497175
+        },
+        "spin": {
+          "x": 0,
+          "y": 25.714285714285715,
+          "z": 0
+        }
+      },
+      "keeper": {
+        "vx": 0,
+        "vy": -0.35,
+        "durMs": 150,
+        "flickTick": 96
+      },
+      "hash": 4093126591,
+      "outcome": "miss",
+      "tag": "over"
+    },
+    {
+      "name": "long-range-sky",
+      "setup": {
+        "spot": {
+          "category": "long_range",
+          "x": -2,
+          "z": 28,
+          "distance": 28.071337695236398,
+          "maxWall": 3,
+          "keeperX": -0.05450382548485422
+        },
+        "wall": {
+          "size": 3,
+          "offset": -1
+        }
+      },
+      "launch": {
+        "pos": {
+          "x": -2,
+          "y": 0.11,
+          "z": 28
+        },
+        "vel": {
+          "x": 3.3882234328250918,
+          "y": 14.38658245856713,
+          "z": -28.38214556956721
+        },
+        "spin": {
+          "x": 0,
+          "y": -17.142857142857146,
+          "z": 0
+        }
+      },
+      "keeper": null,
+      "hash": 399906946,
+      "outcome": "miss",
+      "tag": "over"
+    },
+    {
+      "name": "post-zone",
+      "setup": {
+        "spot": {
+          "category": "outside_box",
+          "x": 0,
+          "z": 22,
+          "distance": 22,
+          "maxWall": 4,
+          "keeperX": 0
+        },
+        "wall": null
+      },
+      "launch": {
+        "pos": {
+          "x": 0,
+          "y": 0.11,
+          "z": 22
+        },
+        "vel": {
+          "x": 4.2536025371177475,
+          "y": 5.933504062292236,
+          "z": -25.994237726830676
+        },
+        "spin": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        }
+      },
+      "keeper": {
+        "vx": -0.29474934389773166,
+        "vy": -0.18874009714911325,
+        "durMs": 150,
+        "flickTick": 144
+      },
+      "hash": 1479350099,
+      "outcome": "goal",
+      "tag": "off_post"
+    },
+    {
+      "name": "bar-zone",
+      "setup": {
+        "spot": {
+          "category": "outside_box",
+          "x": 1,
+          "z": 23,
+          "distance": 23.021728866442675,
+          "maxWall": 4,
+          "keeperX": 0.037374692231825546
+        },
+        "wall": null
+      },
+      "launch": {
+        "pos": {
+          "x": 1,
+          "y": 0.11,
+          "z": 23
+        },
+        "vel": {
+          "x": -0.13983117101088421,
+          "y": 7.5099057867739045,
+          "z": -24.89139936438676
+        },
+        "spin": {
+          "x": 0,
+          "y": 8.571428571428573,
+          "z": 0
+        }
+      },
+      "keeper": {
+        "vx": 0,
+        "vy": 0,
+        "durMs": 80,
+        "flickTick": 120
+      },
+      "hash": 2376175035,
+      "outcome": "save",
+      "tag": "caught"
+    },
+    {
+      "name": "late-dive-corner",
+      "setup": {
+        "spot": {
+          "category": "outside_box",
+          "x": 0,
+          "z": 25,
+          "distance": 25,
+          "maxWall": 4,
+          "keeperX": 0
+        },
+        "wall": null
+      },
+      "launch": {
+        "pos": {
+          "x": 0,
+          "y": 0.11,
+          "z": 25
+        },
+        "vel": {
+          "x": 3.4679746245615117,
+          "y": 6.157321279238079,
+          "z": -27.093551754386862
+        },
+        "spin": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        }
+      },
+      "keeper": {
+        "vx": -0.2925347201327906,
+        "vy": -0.16151451074080622,
+        "durMs": 150,
+        "flickTick": 91
+      },
+      "hash": 4273924146,
+      "outcome": "goal",
+      "tag": "keeper_spill"
+    }
+  ]
+}
