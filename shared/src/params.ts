@@ -5,13 +5,20 @@
 export interface SimParams {
   // Ball flight
   gravity: number;
-  /** Quadratic drag: a = −dragK·|v|·v */
+  /** Quadratic drag above the drag crisis: a = −dragK·|v|·v (dragK = ρ·Cd·A / 2m) */
   dragK: number;
+  /** Drag crisis: below dragCrisisLow the drag coefficient is dragLowScale× higher, blending up to dragCrisisHigh */
+  dragCrisisLow: number;
+  dragCrisisHigh: number;
+  dragLowScale: number;
   /** Magnus: a = magnusK·(ω × v) */
   magnusK: number;
   spinDecayPerTick: number;
   groundRestitution: number;
+  /** Least horizontal speed a bounce keeps (steep bounces) */
   groundTangential: number;
+  /** Grass friction coefficient during a bounce (shallow bounces skid and keep more) */
+  groundFriction: number;
   rollDecel: number;
   rollSpinDecayPerTick: number;
   postRestitution: number;
@@ -21,17 +28,43 @@ export interface SimParams {
   wallTangential: number;
 
   // Kick input → launch
+  /** Launch speed at power 0 and 1 */
   minSpeed: number;
   maxSpeed: number;
   powerExponent: number;
-  /** Reference speed used to solve elevation and curl compensation */
+  /** A typical well-struck free kick; used by the AI and the tuning checks */
   vRef: number;
+  /**
+   * Most sidespin a strike can carry, rad/s, at vRef. Set past what feet
+   * manage (pros reach ~10–17 rev/s) so full curl bends like the most
+   * spectacular free kicks and then some: the game's licence for fun.
+   */
   maxSpin: number;
-  curlCompensation: number;
+  /** Topspin a curled strike carries per unit of sidespin (makes curlers dip) */
+  topspinPerSidespin: number;
+  /** Outside-of-the-boot (trivela) strikes: share of maxSpin they can carry, and their strike error multiplier */
+  trivelaSpinScale: number;
+  trivelaErrorScale: number;
+  /** Chips: backspin (rad/s) and launch elevation at power 1 and 0 (degrees) */
+  chipBackspin: number;
+  chipElevMinDeg: number;
+  chipElevMaxDeg: number;
+  /** Off-centre contact trades pace for spin: full curl loses this fraction of speed */
+  curvePaceLoss: number;
   overhitThreshold: number;
   overhitDeg: number;
-  aimOutsidePost: number;
+  /** Shot height for the longest swipe (harness pad) */
   maxTargetHeight: number;
+  /** Aims below this height (m) are driven low: capped to a skimming elevation */
+  lowShotHeight: number;
+  /** Strike error σ (degrees of launch direction): base + power²·powerDeg + curl·curlDeg */
+  aimErrorBaseDeg: number;
+  aimErrorPowerDeg: number;
+  aimErrorCurlDeg: number;
+  /** Vertical error as a fraction of the horizontal one */
+  aimErrorVerticalScale: number;
+  /** Spin error σ, as a fraction of the spin */
+  spinErrorFrac: number;
 
   // Keeper dive
   /** 1 = an early flick waits so the dive peaks as the ball arrives; 0 = dive immediately */
@@ -78,11 +111,17 @@ export interface SimParams {
 
 export const DEFAULT_PARAMS: Readonly<SimParams> = Object.freeze({
   gravity: 9.81,
-  dragK: 0.01,
-  magnusK: 0.0042,
+  // Ball 0.43 kg, r 0.11 m, ρ 1.2: Cd ≈ 0.22 past the drag crisis, ≈ 0.42 below it.
+  dragK: 0.0115,
+  dragCrisisLow: 10,
+  dragCrisisHigh: 16,
+  dragLowScale: 1.9,
+  // Lift coefficient ≈ 0.85 × spin parameter (rω/v), within measured ball data (Cl ≈ 0.25 for a pro's 10 rev/s curler).
+  magnusK: 0.005,
   spinDecayPerTick: 0.9989588756797245, // exp(−dt / 4 s)
   groundRestitution: 0.55,
   groundTangential: 0.7,
+  groundFriction: 0.4,
   rollDecel: 0.5,
   rollSpinDecayPerTick: 0.991701292638876, // exp(−dt / 0.5 s)
   postRestitution: 0.65,
@@ -91,20 +130,31 @@ export const DEFAULT_PARAMS: Readonly<SimParams> = Object.freeze({
   wallRestitution: 0.4,
   wallTangential: 0.8,
 
-  minSpeed: 14,
-  maxSpeed: 32,
-  powerExponent: 1.3,
+  minSpeed: 12,
+  maxSpeed: 36,
+  powerExponent: 0.7,
   vRef: 27,
-  maxSpin: 60,
-  curlCompensation: 1,
-  overhitThreshold: 0.85,
-  overhitDeg: 40,
-  aimOutsidePost: 1.5,
-  maxTargetHeight: 3.4,
+  maxSpin: 105,
+  topspinPerSidespin: 0.25,
+  trivelaSpinScale: 0.8,
+  trivelaErrorScale: 1.25,
+  chipBackspin: 25,
+  chipElevMinDeg: 28,
+  chipElevMaxDeg: 45,
+  curvePaceLoss: 0.06,
+  overhitThreshold: 0.92,
+  overhitDeg: 50,
+  maxTargetHeight: 3.2,
+  lowShotHeight: 0.6,
+  aimErrorBaseDeg: 0.25,
+  aimErrorPowerDeg: 0.7,
+  aimErrorCurlDeg: 0.4,
+  aimErrorVerticalScale: 0.8,
+  spinErrorFrac: 0.08,
 
   diveAutoTime: 1,
   keeperWindup: 0.08,
-  diveBaseTime: 0.45,
+  diveBaseTime: 0.48,
   diveTimePerMeter: 0.15,
   diveTimePerHeight: 0.15,
   highReachScale: 0.85,
@@ -133,6 +183,6 @@ export const DEFAULT_PARAMS: Readonly<SimParams> = Object.freeze({
   weakDeflect: 0.25,
 
   wallJumpDelay: 0.1,
-  wallJumpHeight: 0.45,
+  wallJumpHeight: 0.3,
   wallJumpDuration: 0.5,
 });

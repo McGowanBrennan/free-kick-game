@@ -19,7 +19,8 @@ import {
   idealKeeperInput,
   keeperInputFromSwipe,
   kickInputForTarget,
-  kickInputFromSwipe,
+  analyzeSwipe,
+  heightFromLength,
   mulberry32,
   planKeeper,
   powerForSpeed,
@@ -49,10 +50,10 @@ const state = {
   seed: 7,
   wallSize: 4,
   wallOffset: 0,
-  u: 0.6,
-  L: 0.33,
+  x: 2.6,
+  y: 1.6,
   p: 0.75,
-  c: 0.2,
+  c: 0.6,
   keeperMode: 'ideal' as KeeperMode,
   flickTime: 0.3,
   vx: -0.25,
@@ -99,7 +100,7 @@ function banner(text: string, ms = 1800): void {
 const wallConfig = (): WallConfig | null =>
   spot.maxWall > 0 && state.wallSize > 0 ? { size: Math.min(state.wallSize, spot.maxWall), offset: state.wallOffset } : null;
 
-const kickInput = (): KickInput => ({ u: state.u, L: state.L, p: state.p, c: state.c, durMs: 150 });
+const kickInput = (): KickInput => kickInputForTarget(spot, state.x, state.y, state.p, state.c, params);
 
 function keeperFromState(): KeeperInput | null {
   const flickTick = Math.round(state.flickTime * TICK_RATE);
@@ -126,7 +127,7 @@ function simulate(keeper: KeeperInput | null): void {
   );
   scene.setWall(result.wall?.players ?? []);
   scene.setTrace(result.frames!.ball);
-  scene.setTarget(targetFromInput(kickInput(), params));
+  scene.setTarget(targetFromInput(kickInput()));
   scene.setCrossing(result.lineCrossing);
   scene.setEnvelope(state.envelope ? envelopePoints() : null);
   scrub.min = String(-RUNUP_TICKS);
@@ -193,7 +194,7 @@ function runHeatmap(): void {
     for (let j = 0; j < ny; j++) {
       const x = -GOAL_HALF_WIDTH + w * (i + 0.5);
       const y = h * (j + 0.5);
-      const l = computeLaunch(spot, kickInputForTarget(x, y, state.heatPower, state.heatCurve, params), params);
+      const l = computeLaunch(spot, kickInputForTarget(spot, x, y, state.heatPower, state.heatCurve, params), params);
       const r = simulateKick(setup, l, idealKeeperInput(setup, l, flickTick, params), params);
       cells.push({ x, y, w, h, outcome: r.outcome });
     }
@@ -269,10 +270,10 @@ fSpot.add(state, 'wallSize', 0, 4, 1).name('wall size').onChange(() => resimulat
 fSpot.add(state, 'wallOffset', -3, 3, 0.05).name('wall offset (m)').onChange(() => resimulate());
 
 const fKick = gui.addFolder('Kick');
-fKick.add(state, 'u', -1, 1, 0.01).name('aim u').onChange(() => resimulate());
-fKick.add(state, 'L', INPUT.minAimLen, INPUT.maxAimLen, 0.005).name('height L').onChange(() => resimulate());
+fKick.add(state, 'x', -6, 6, 0.05).name('aim x (m)').onChange(() => resimulate());
+fKick.add(state, 'y', 0.1, 4, 0.05).name('aim height (m)').onChange(() => resimulate());
 fKick.add(state, 'p', 0, 1, 0.01).name('power p').onChange(() => resimulate());
-fKick.add(state, 'c', -INPUT.maxCurve, INPUT.maxCurve, 0.01).name('curve c').onChange(() => resimulate());
+fKick.add(state, 'c', -1, 1, 0.01).name('curl c').onChange(() => resimulate());
 fKick.add(state, 'liveOnSwipe').name('shooter pad → live');
 
 const fKeeper = gui.addFolder('Keeper');
@@ -292,13 +293,13 @@ fView.add(state, 'envelope').name('keeper reach').onChange((v: boolean) => scene
 const fHeat = gui.addFolder('Save heatmap');
 fHeat.add(state, 'heatDelay', 0, 0.8, 0.01).name('reaction (s)');
 fHeat.add(state, 'heatPower', 0, 1, 0.01).name('power');
-fHeat.add(state, 'heatCurve', -INPUT.maxCurve, INPUT.maxCurve, 0.01).name('curve');
+fHeat.add(state, 'heatCurve', -1, 1, 0.01).name('curl');
 fHeat.add({ run: runHeatmap }, 'run').name('Run heatmap');
 fHeat.add({ clear: () => scene.setHeatmap(null) }, 'clear').name('Clear');
 
 const PHYSICS_GROUPS: [string, (keyof SimParams)[]][] = [
-  ['Ball physics', ['gravity', 'dragK', 'magnusK', 'spinDecayPerTick', 'groundRestitution', 'groundTangential', 'rollDecel', 'rollSpinDecayPerTick', 'postRestitution', 'postTangential', 'postSpinRetain', 'wallRestitution', 'wallTangential']],
-  ['Kick mapping', ['minSpeed', 'maxSpeed', 'powerExponent', 'vRef', 'maxSpin', 'curlCompensation', 'overhitThreshold', 'overhitDeg', 'aimOutsidePost', 'maxTargetHeight']],
+  ['Ball physics', ['gravity', 'dragK', 'dragCrisisLow', 'dragCrisisHigh', 'dragLowScale', 'magnusK', 'spinDecayPerTick', 'groundRestitution', 'groundTangential', 'groundFriction', 'rollDecel', 'rollSpinDecayPerTick', 'postRestitution', 'postTangential', 'postSpinRetain', 'wallRestitution', 'wallTangential']],
+  ['Kick mapping', ['minSpeed', 'maxSpeed', 'powerExponent', 'vRef', 'maxSpin', 'topspinPerSidespin', 'curvePaceLoss', 'overhitThreshold', 'overhitDeg', 'maxTargetHeight']],
   ['Keeper dive', ['diveAutoTime', 'keeperWindup', 'diveBaseTime', 'diveTimePerMeter', 'diveTimePerHeight', 'highReachScale', 'diveHold', 'diveFall', 'minHandReach', 'maxHandReach', 'lowHandY', 'highHandY', 'jumpHandY']],
   ['Keeper set/stance', ['setReachX', 'setReachY', 'setHandSpeed', 'stanceReachX', 'stanceReachY', 'stanceHandSpeed']],
   ['Keeper contact', ['catchMaxSpeed', 'catchMaxStretch', 'parryRestitution', 'parryTangential', 'weakGlancing', 'weakKeepMin', 'weakKeepMax', 'weakDeflect']],
@@ -314,6 +315,7 @@ const RANGES: Partial<Record<keyof SimParams, [number, number, number]>> = {
   maxSpeed: [20, 45, 0.5],
   vRef: [15, 35, 0.5],
   maxSpin: [0, 120, 1],
+  topspinPerSidespin: [0, 1.5, 0.05],
   overhitDeg: [0, 80, 1],
   diveAutoTime: [0, 1, 1],
   catchMaxSpeed: [0, 40, 0.5],
@@ -364,12 +366,19 @@ fPhysics
 // ── Pads and timeline ──────────────────────────────────────────────────────
 
 attachPad($('kick-pad'), (samples, h) => {
-  const k = kickInputFromSwipe(samples, h);
-  if (!k) {
+  const a = analyzeSwipe(samples, h);
+  if (!a) {
     banner('Swipe ignored: too short, too slow, or not upward');
     return;
   }
-  Object.assign(state, { u: k.u, L: k.L, p: k.p, c: k.c });
+  // Pad stand-in for the game's camera aim: lean of the chord → where across the
+  // goal, lean of the start → the start line, length → height. The curl slider
+  // then shows the spin the solver needed for that bend.
+  const x = (a.dx / a.length) * 9;
+  const y = heightFromLength(a.length, params.maxTargetHeight);
+  const sx = a.startDx * 9;
+  const l = computeLaunch(spot, { x, y, p: a.power, sx, durMs: a.durMs }, params);
+  Object.assign(state, { x, y, p: a.power, c: l.spin.y / params.maxSpin });
   refreshGui();
   if (state.liveOnSwipe) startLive();
   else resimulate();
