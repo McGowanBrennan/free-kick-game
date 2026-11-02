@@ -164,4 +164,63 @@ describe('a friend match on the server', () => {
     vi.advanceTimersByTime(ONLINE.reconnectMs + 10);
     expect(last(0, 'end')).toMatchObject({ winner: 0, forfeit: true });
   });
+
+  test('rejoining a chair that was given up does not throw', () => {
+    const room = new Room('ABCDEF', 'freekick');
+    room.sit({ name: 'Host', token: 't0', send: () => undefined, rtt: 60 });
+    room.leave(0);
+    expect(() => room.rejoin(0, () => undefined)).not.toThrow();
+    expect(room.seats[0]).toBeNull();
+  });
+
+  test('a third player cannot take a chair once the match has both of them, even before the toss', () => {
+    const { room } = setup();
+    expect(room.sit({ name: 'Late', token: 't2', send: () => undefined, rtt: 60 })).toBeNull();
+    expect(room.seats[0]?.name).toBe('Host');
+    expect(room.seats[1]?.name).toBe('Guest');
+  });
+
+  test('a disconnect before the toss holds that chair: the late joiner is refused, and the toss waits', () => {
+    const inbox: [Inbox, Inbox] = [[], []];
+    const room = new Room('ABCDEF', 'freekick', { random: () => 0.3 });
+    const send0 = (m: ServerMsg) => inbox[0].push(m);
+    const send1 = (m: ServerMsg) => inbox[1].push(m);
+    room.sit({ name: 'Host', token: 't0', send: send0, rtt: 60 });
+    room.sit({ name: 'Guest', token: 't1', send: send1, rtt: 60 });
+    room.drop(1);
+    expect(inbox[0].at(-1)).toMatchObject({ t: 'opponent', connected: false });
+    expect(room.sit({ name: 'Late', token: 't2', send: () => undefined, rtt: 60 })).toBeNull();
+    expect(room.seats[1]?.token).toBe('t1');
+    vi.advanceTimersByTime(2000);
+    expect(inbox[0].some((m) => m.t === 'toss_call')).toBe(false);
+    room.rejoin(1, (m) => inbox[1].push(m));
+    vi.advanceTimersByTime(700);
+    expect(inbox[0].some((m) => m.t === 'toss_call')).toBe(true);
+    expect(inbox[1].some((m) => m.t === 'toss_call')).toBe(true);
+  });
+
+  test('after the toss, a drop pauses the kick; the old socket closing after they are back does not', () => {
+    const inbox: [Inbox, Inbox] = [[], []];
+    const room = new Room('ABCDEF', 'fieldgoal', { random: () => 0.3 });
+    const send0 = (m: ServerMsg) => inbox[0].push(m);
+    const send1 = (m: ServerMsg) => inbox[1].push(m);
+    room.sit({ name: 'Host', token: 't0', send: send0, rtt: 60 });
+    room.sit({ name: 'Guest', token: 't1', send: send1, rtt: 60 });
+    vi.advanceTimersByTime(700);
+    room.call(1, 'heads');
+    room.choose(1, true);
+    // The kick is due 2.4s after the choice. They drop: it must not start without them.
+    room.drop(1);
+    vi.advanceTimersByTime(3000);
+    expect(inbox[0].some((m) => m.t === 'kick_start')).toBe(false);
+    const send1b = (m: ServerMsg) => inbox[1].push(m);
+    room.rejoin(1, send1b);
+    // The socket they replaced closes late. That must not pause the kick again.
+    room.dropFrom(1, send1);
+    expect(inbox[0].filter((m) => m.t === 'opponent' && m.connected === false)).toHaveLength(1);
+    expect(inbox[0].some((m) => m.t === 'kick_start')).toBe(true);
+    expect(inbox[1].some((m) => m.t === 'kick_start')).toBe(true);
+    vi.advanceTimersByTime(3000);
+    expect(inbox[0].filter((m) => m.t === 'opponent' && m.connected === false)).toHaveLength(1);
+  });
 });

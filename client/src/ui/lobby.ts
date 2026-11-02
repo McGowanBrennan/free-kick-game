@@ -35,16 +35,22 @@ export class Lobby {
     );
   }
 
-  /** Open the screen (fresh), optionally with an invite's code (joined straight away if we know the player's name). */
+  /**
+   * Open the screen (fresh). With an invite's code it's just the join card:
+   * the room, your name (always shown, so you can change it) and Join.
+   */
   open(code?: string): void {
     this.reset();
+    const screen = $('#screen-online');
+    screen.dataset.view = code ? 'invite' : 'start';
     if (!code) return;
-    $<HTMLInputElement>('#online-code').value = code.toUpperCase().slice(0, ROOM_CODE_LENGTH);
-    if (savedName()) void this.join(code);
-    else {
-      this.status('Pop your name in, then tap Join');
-      $<HTMLInputElement>('#online-name').focus();
-    }
+    const c = code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, ROOM_CODE_LENGTH);
+    $<HTMLInputElement>('#online-code').value = c;
+    $('#screen-online .invite-code').textContent = c;
+    const name = $<HTMLInputElement>('#online-name');
+    this.status(name.value ? 'Check your name, then tap Join' : 'Put your name in, then tap Join');
+    name.focus();
+    name.select();
   }
 
   private reset(): void {
@@ -81,6 +87,13 @@ export class Lobby {
       input.focus();
       return null;
     }
+    // (The room code typed into the name box by mistake.)
+    if (name.toUpperCase() === $<HTMLInputElement>('#online-code').value || name.toUpperCase() === this.code) {
+      this.status("That's the room code: put your own name in", true);
+      input.focus();
+      input.select();
+      return null;
+    }
     saveName(name);
     return name;
   }
@@ -100,6 +113,7 @@ export class Lobby {
       return null;
     }
     this.conn = conn;
+    conn.onLost = () => this.lost('The room is no longer available. Create or join it again.');
     conn.send(first);
     const m = await conn.next(['room', 'error']);
     if (m.t === 'error') {
@@ -133,12 +147,34 @@ export class Lobby {
     await this.awaitFriend(room);
   }
 
+  private lost(text: string): void {
+    const conn = this.conn;
+    this.waiting?.abort();
+    this.waiting = null;
+    this.conn = null;
+    conn?.close();
+    $('#screen-online .online-setup').hidden = false;
+    $('#screen-online .online-wait').hidden = true;
+    this.busy(false);
+    this.status(text, true);
+  }
+
   private async awaitFriend(room: Extract<ServerMsg, { t: 'room' }>): Promise<void> {
-    const conn = this.conn!;
+    const conn = this.conn;
+    if (!conn) return;
     this.waiting = new AbortController();
     const signal = this.waiting.signal;
-    const m = await Promise.race([conn.next(['opponent'], signal), new Promise<null>((r) => signal.addEventListener('abort', () => r(null)))]);
-    if (!m || !m.connected) return;
+    const m = await Promise.race([
+      conn.next(['opponent', 'error', 'end'], signal),
+      new Promise<null>((r) => signal.addEventListener('abort', () => r(null))),
+    ]);
+    if (!m || this.conn !== conn) return;
+    if (m.t === 'error') return this.lost(m.msg);
+    if (m.t === 'end') return this.lost(m.forfeit ? 'The other player left' : 'The match ended');
+    if (!m.connected) {
+      this.status('They lost connection. Waiting for them to come back…');
+      return this.awaitFriend(room);
+    }
     this.waiting = null;
     const names: [string, string] = [room.names[0] ?? '', room.names[1] ?? ''];
     names[other(room.seat)] = m.name ?? 'Friend';
@@ -150,10 +186,10 @@ export class Lobby {
   /** The invite: the share sheet where there is one, otherwise the link copied. */
   private async share(): Promise<void> {
     const url = `${location.origin}/?room=${this.code}`;
-    const text = `Come and play me at Free Kick Duel: room ${this.code}`;
+    const text = `Come and play me at Flick Arena: room ${this.code}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'Free Kick Duel', text, url });
+        await navigator.share({ title: 'Flick Arena', text, url });
         return;
       }
       await navigator.clipboard.writeText(url);

@@ -2,7 +2,7 @@
 # (game files and friend matches on one port). New → Blueprint → this repo.
 services:
   - type: web
-    name: free-kick-duel
+    name: flick-arena
     runtime: node
     plan: free
     buildCommand: npm ci --include=dev && npm run build && npm run server:build

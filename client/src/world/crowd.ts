@@ -196,7 +196,7 @@ transformed.y -= 0.08 * ${size.toFixed(2)} * w * w;`,
 }
 
 const BANNER_TEXT: Record<CrowdTheme, string[]> = {
-  soccer: ['FREE KICK KINGS', 'TOP BINS ONLY', 'CURL IT IN', 'WE NEVER WALK ALONE', 'NO MERCY', 'ULTRAS 1987', 'ONE FLICK', 'SAVE IT!'],
+  soccer: ['FLICK KINGS', 'TOP BINS ONLY', 'CURL IT IN', 'WE NEVER WALK ALONE', 'NO MERCY', 'ULTRAS 1987', 'ONE FLICK', 'SAVE IT!'],
   football: ["IT'S GOOD!", 'SPLIT THE UPRIGHTS', '3 POINTS', 'DE-FENSE', 'BLOCK IT!', 'ICE THE KICKER', 'WE WANT 3', 'LEG OF GOLD'],
 };
 

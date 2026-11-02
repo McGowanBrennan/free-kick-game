@@ -6,6 +6,9 @@ const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = 
 
 export type Tone = 'good' | 'bad' | 'info';
 
+/** The controller's face-button shapes, drawn (not emoji): on the taunts and the toss's choices. */
+export type Glyph = 'triangle' | 'circle' | 'cross' | 'square';
+
 export class Hud {
   private readonly root = $('#hud');
   private readonly bannerEl = $('#banner');
@@ -29,7 +32,7 @@ export class Hud {
     $('#view-reset').addEventListener('click', onResetView);
     const toggle = $('#sound-toggle');
     const sync = () => {
-      toggle.textContent = soundSetting.on() ? '🔊' : '🔇';
+      toggle.classList.toggle('off', !soundSetting.on());
       toggle.setAttribute('aria-label', soundSetting.on() ? 'Mute' : 'Unmute');
     };
     toggle.addEventListener('click', () => {
@@ -53,12 +56,12 @@ export class Hud {
   }
 
   /** The taunt buttons: each tap sends its index to `onPick` (tap as fast as you like). Returns a function that takes them away. */
-  emotes(options: { icon: string; label: string }[], onPick: (i: number) => void): () => void {
+  emotes(options: { glyph: Glyph; label: string }[], onPick: (i: number) => void): () => void {
     const bar = $('#emotes');
     bar.replaceChildren(
       ...options.map((o, i) => {
         const b = document.createElement('button');
-        b.innerHTML = `<span class="ico">${o.icon}</span><span>${o.label}</span>`;
+        b.innerHTML = `<span class="glyph ${o.glyph}"></span><span class="label">${o.label}</span>`;
         // On the press (not the click), so rapid taps all land.
         b.addEventListener('pointerdown', (e) => {
           e.preventDefault();

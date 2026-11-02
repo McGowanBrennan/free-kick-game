@@ -1,4 +1,4 @@
-// The game server: serves the built game (client/dist) and runs friend
+// The Flick Arena game server: serves the built game (client/dist) and runs friend
 // matches over a WebSocket at /ws (SPEC §6). One process, one port (PORT,
 // default 8787), so it can be deployed anywhere that runs Node and allows
 // WebSockets. Rooms live in memory.
@@ -64,6 +64,13 @@ const http = createServer((req, res) => {
 const rooms = new Map<string, Room>();
 /** Where each player token sits, so a dropped connection can come back */
 const seatsByToken = new Map<string, { room: Room; seat: Seat }>();
+/** The live socket for a token. A replaced connection's close must not drop the seat. */
+const sockets = new Map<string, WebSocket>();
+
+function forgetToken(token: string): void {
+  seatsByToken.delete(token);
+  sockets.delete(token);
+}
 
 function newCode(): string {
   for (;;) {
@@ -76,7 +83,7 @@ function newCode(): string {
 function closeRoom(room: Room): void {
   room.dispose();
   rooms.delete(room.code);
-  for (const [token, at] of seatsByToken) if (at.room === room) seatsByToken.delete(token);
+  for (const [token, at] of seatsByToken) if (at.room === room) forgetToken(token);
 }
 
 // Tidy up: rooms nobody's connected to, or nobody joined, after a while.
@@ -98,23 +105,43 @@ wss.on('connection', (ws) => {
   let alive = true;
   ws.on('pong', () => (alive = true));
   const beat = setInterval(() => {
-    if (!alive) return ws.terminate();
+    if (!alive) {
+      clearInterval(beat);
+      ws.terminate();
+      return;
+    }
     alive = false;
-    ws.ping();
+    try {
+      ws.ping();
+    } catch {
+      // Already closing.
+    }
   }, 15_000);
 
   const send = (m: ServerMsg) => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m));
   };
   const error = (msg: string) => send({ t: 'error', msg });
+  /** This socket is the live one for the token. An older socket is closed and must not drop the seat. */
+  const claim = () => {
+    const prev = sockets.get(token);
+    sockets.set(token, ws);
+    if (prev && prev !== ws) prev.terminate();
+  };
   const sit = (room: Room) => {
     const seat = room.sit({ name, token, send, rtt: 100 });
     if (seat === null) return error('That room is full');
     at = { room, seat };
     seatsByToken.set(token, at);
+    claim();
   };
 
   ws.on('message', (data) => {
+    // Any traffic counts as alive. A proxy may swallow protocol pongs; the client's own pings must not look like a dead socket.
+    alive = true;
+    // A socket we already replaced (they reconnected) can still deliver a late message. Ignore it.
+    const owner = token ? sockets.get(token) : undefined;
+    if (owner && owner !== ws) return;
     let m: ClientMsg;
     try {
       m = JSON.parse(String(data)) as ClientMsg;
@@ -122,72 +149,86 @@ wss.on('connection', (ws) => {
       return;
     }
     if (!m || typeof m !== 'object') return;
-    if (m.t === 'ping') {
-      send({ t: 'pong', c: m.c, s: Date.now() });
-      if (at) at.room.setRtt(at.seat, m.rtt);
-      return;
-    }
-    if (m.t === 'hello') {
-      name = String(m.name ?? '').replace(/[^\p{L}\p{N} _.-]/gu, '').trim().slice(0, 16) || 'Player';
-      // Coming back with a token that has a seat: pick the match back up.
-      const back = typeof m.token === 'string' ? seatsByToken.get(m.token) : undefined;
-      token = back ? m.token! : randomBytes(16).toString('hex');
-      send({ t: 'welcome', token });
-      if (back && rooms.has(back.room.code)) {
-        at = back;
-        back.room.rejoin(back.seat, send);
-      }
-      return;
-    }
-    if (!token) return error('Say hello first');
-    if (m.t === 'create') {
-      if (at) at.room.leave(at.seat);
-      const room = new Room(newCode(), m.mode === 'fieldgoal' ? 'fieldgoal' : 'freekick');
-      rooms.set(room.code, room);
-      return sit(room);
-    }
-    if (m.t === 'join') {
-      const room = rooms.get(String(m.code ?? '').toUpperCase().trim());
-      if (!room) return error('No room with that code');
-      if (at?.room === room) return;
-      if (at) at.room.leave(at.seat);
-      return sit(room);
-    }
-    if (!at) return;
-    const { room, seat } = at;
-    switch (m.t) {
-      case 'leave':
-        room.leave(seat);
-        seatsByToken.delete(token);
-        at = null;
-        if (room.closed) closeRoom(room);
+    try {
+      if (m.t === 'ping') {
+        send({ t: 'pong', c: m.c, s: Date.now() });
+        if (at) at.room.setRtt(at.seat, m.rtt);
         return;
-      case 'call':
-        return room.call(seat, m.side);
-      case 'choose':
-        return room.choose(seat, m.kickFirst);
-      case 'wall':
-        return room.wall(seat, m.wall);
-      case 'kick':
-        return room.shoot(seat, m.input);
-      case 'keeper':
-        return room.keep(seat, m.input);
-      case 'emote':
-        return room.emote(seat, m.kind);
-      case 'ready':
-        return room.ready(seat);
-      case 'rematch':
-        return room.rematch(seat);
+      }
+      if (m.t === 'hello') {
+        name = String(m.name ?? '').replace(/[^\p{L}\p{N} _.-]/gu, '').trim().slice(0, 16) || 'Player';
+        // Coming back with a token that still has a chair: pick the match back up.
+        const requested = typeof m.token === 'string' ? m.token : undefined;
+        const back = requested ? seatsByToken.get(requested) : undefined;
+        const holder = back && rooms.has(back.room.code) ? back.room.seats[back.seat] : undefined;
+        if (back && holder?.token === requested) {
+          token = requested!;
+          send({ t: 'welcome', token, restored: true });
+          at = back;
+          claim();
+          back.room.rejoin(back.seat, send);
+          return;
+        }
+        if (requested) forgetToken(requested);
+        token = randomBytes(16).toString('hex');
+        send({ t: 'welcome', token, ...(requested ? { restored: false } : {}) });
+        if (requested) send({ t: 'error', msg: 'The match ended while you were disconnected' });
+        return;
+      }
+      if (!token) return error('Say hello first');
+      if (m.t === 'create') {
+        if (at) at.room.leave(at.seat);
+        const room = new Room(newCode(), m.mode === 'fieldgoal' ? 'fieldgoal' : 'freekick', { onSeatGone: forgetToken });
+        rooms.set(room.code, room);
+        return sit(room);
+      }
+      if (m.t === 'join') {
+        const room = rooms.get(String(m.code ?? '').toUpperCase().trim());
+        if (!room) return error('No room with that code');
+        if (at?.room === room && at.room.seats[at.seat]?.token === token) return;
+        if (at) at.room.leave(at.seat);
+        return sit(room);
+      }
+      if (!at) return;
+      const { room, seat } = at;
+      switch (m.t) {
+        case 'leave':
+          room.leave(seat);
+          forgetToken(token);
+          at = null;
+          if (room.closed) closeRoom(room);
+          return;
+        case 'call':
+          return room.call(seat, m.side);
+        case 'choose':
+          return room.choose(seat, m.kickFirst);
+        case 'wall':
+          return room.wall(seat, m.wall);
+        case 'kick':
+          return room.shoot(seat, m.input);
+        case 'keeper':
+          return room.keep(seat, m.input);
+        case 'emote':
+          return room.emote(seat, m.kind);
+        case 'ready':
+          return room.ready(seat);
+        case 'rematch':
+          return room.rematch(seat);
+      }
+    } catch (err) {
+      console.error('room message failed', err);
     }
   });
 
   ws.on('close', () => {
     clearInterval(beat);
-    if (at) at.room.drop(at.seat);
+    // Only the socket that still owns the chair can drop it. The one we replaced must not.
+    if (!at || sockets.get(token) !== ws) return;
+    at.room.dropFrom(at.seat, send);
   });
   ws.on('error', () => undefined);
 });
 
 http.listen(PORT, () => {
-  console.log(`Free Kick Duel server on :${PORT} (game files from ${STATIC}${existsSync(STATIC) ? '' : ', not built yet'})`);
+  console.log(`Flick Arena server on :${PORT} (game files from ${STATIC}${existsSync(STATIC) ? '' : ', not built yet'})`);
 });

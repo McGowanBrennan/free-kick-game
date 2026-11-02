@@ -96,7 +96,7 @@ export interface KickResultMsg {
 }
 
 export type ServerMsg =
-  | { t: 'welcome'; token: string }
+  | { t: 'welcome'; token: string; /** False: the token was for a match that is already gone */ restored?: boolean }
   | { t: 'room'; code: string; mode: OnlineMode; seat: Seat; names: [string, string | null] }
   | { t: 'pong'; c: number; s: number }
   | { t: 'opponent'; connected: boolean; name?: string }

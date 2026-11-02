@@ -6,23 +6,23 @@
     <meta name="theme-color" content="#0b1220" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Free Kick" />
+    <meta name="apple-mobile-web-app-title" content="Flick Arena" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="description" content="One flick. Five kicks. A free kick duel: curl it, chip it, or keep it out." />
+    <meta name="description" content="Flick Arena: one flick, five kicks. Free kicks and field goals, head to head: curl it, chip it, or keep it out." />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icons/icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <title>Free Kick Duel</title>
+    <title>Flick Arena</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div id="splash">
-      <div class="logo">FREE KICK<br /><span>DUEL</span></div>
+      <div class="logo">FLICK<br /><span>ARENA</span></div>
       <div class="tip"><b>TIP</b> Bend it into the wind. The wind doesn't care how you feel.</div>
       <div class="loading" aria-label="Loading">LOADING<i>.</i><i>.</i><i>.</i></div>
     </div>
     <div id="title" hidden>
-      <div class="logo">FREE KICK<br /><span>DUEL</span></div>
+      <div class="logo">FLICK<br /><span>ARENA</span></div>
       <div class="press">PRESS START</div>
       <div class="legal">© 2004 Fictional Sports Interactive · All teams, players and sponsors are made up · Not endorsed by any league</div>
     </div>
@@ -37,7 +37,7 @@
         <div class="sub"></div>
       </div>
     </div>
-    <div id="wipe" aria-hidden="true"><div class="band"></div><div class="crest"><span>FK</span></div></div>
+    <div id="wipe" aria-hidden="true"><div class="band"></div><div class="crest"><span>FA</span></div></div>
     <div id="memcard" hidden>
       <div class="card"></div>
       <div>Saving data. Do not remove the MEMORY CARD (8MB) in MEMORY CARD slot 1, or switch off the console.</div>
@@ -63,9 +63,9 @@
         <circle class="fill" cx="22" cy="22" r="18" />
         <text x="22" y="27" text-anchor="middle"></text>
       </svg>
-      <button id="quit" class="ghost small" aria-label="Leave">✕</button>
-      <button id="sound-toggle" class="ghost small" aria-label="Sound">🔊</button>
-      <button id="view-reset" class="ghost small" aria-label="Reset camera" hidden>⟲</button>
+      <button id="quit" class="ghost small" aria-label="Leave"></button>
+      <button id="sound-toggle" class="ghost small" aria-label="Sound"></button>
+      <button id="view-reset" class="ghost small" aria-label="Reset camera" hidden></button>
       <div id="replay-tag" hidden><span class="rec"></span>REPLAY</div>
       <div id="wind" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L19 13 L14 13 L14 21 L10 21 L10 13 L5 13 Z" /></svg>
@@ -107,10 +107,10 @@
     <div id="screen-menu" class="screen" hidden>
       <div id="install-tip" hidden>
         <span>Play full screen: tap <b>Share</b> then <b>Add to Home Screen</b>.</span>
-        <button class="ghost small" aria-label="Dismiss">✕</button>
+        <button class="ghost small" aria-label="Dismiss"></button>
       </div>
       <div class="brand">
-        <div class="logo">FREE KICK<br /><span>DUEL</span></div>
+        <div class="logo">FLICK<br /><span>ARENA</span></div>
         <div class="tagline">One flick. Five kicks. No mercy.</div>
       </div>
       <div class="menu-buttons">
@@ -167,7 +167,7 @@
       </div>
       <button data-go="reset-views" class="big">Reset camera views</button>
       <div class="credits">
-        Free Kick Duel · all teams, players and sponsors are fictional.<br />
+        Flick Arena · all teams, players and sponsors are fictional.<br />
         Stadium crowds and cheers supplied by the developer. Whistle: dklon (CC-BY 3.0). Kick, glove, post, bounce and net sounds: AntumDeluge, BMacZero, artisticdude (CC0), via OpenGameArt.org.
       </div>
       <button data-go="menu" class="primary big">Done</button>
@@ -194,18 +194,19 @@
     <div id="screen-online" class="screen" hidden>
       <div class="screen-title">Play a friend</div>
       <div class="online-setup">
+        <div class="invite-title">You're invited to room <b class="invite-code"></b></div>
         <div class="field">
-          <label for="online-name">Your name</label>
+          <label for="online-name">Your name <small>(your friend sees this)</small></label>
           <input id="online-name" type="text" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Your name" />
         </div>
-        <div class="field">
+        <div class="field create-only">
           <label>Game</label>
           <div class="seg" data-key="mode">
             <button data-value="freekick">Free kicks</button><button data-value="fieldgoal">Field goals</button>
           </div>
         </div>
-        <button data-online="create" class="primary big">Create a room</button>
-        <div class="online-or">or join your friend's room</div>
+        <button data-online="create" class="primary big create-only">Create a room</button>
+        <div class="online-or create-only">or join your friend's room</div>
         <div class="join-row">
           <input id="online-code" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CODE" />
           <button data-online="join" class="big">Join</button>
