@@ -116,7 +116,7 @@
       <div class="menu-buttons">
         <button data-go="match" class="primary big">Play vs AI</button>
         <button data-go="practice" class="big">Practice</button>
-        <button class="big" disabled>Online <small>coming soon</small></button>
+        <button data-go="online" class="big">Play a friend</button>
         <div class="menu-row">
           <button data-go="howto" class="ghost">How to play</button>
           <button data-go="settings" class="ghost">Settings</button>
@@ -189,6 +189,35 @@
       </div>
       <button data-go="start-match" class="primary big">Kick off</button>
       <button data-go="menu" class="ghost">Back</button>
+    </div>
+
+    <div id="screen-online" class="screen" hidden>
+      <div class="screen-title">Play a friend</div>
+      <div class="online-setup">
+        <div class="field">
+          <label for="online-name">Your name</label>
+          <input id="online-name" type="text" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Your name" />
+        </div>
+        <div class="field">
+          <label>Game</label>
+          <div class="seg" data-key="mode">
+            <button data-value="freekick">Free kicks</button><button data-value="fieldgoal">Field goals</button>
+          </div>
+        </div>
+        <button data-online="create" class="primary big">Create a room</button>
+        <div class="online-or">or join your friend's room</div>
+        <div class="join-row">
+          <input id="online-code" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CODE" />
+          <button data-online="join" class="big">Join</button>
+        </div>
+      </div>
+      <div class="online-wait" hidden>
+        <div class="room-label">Your room · <span class="room-game"></span></div>
+        <div class="room-code"></div>
+        <button data-online="share" class="primary big">Send the invite</button>
+      </div>
+      <div class="online-status" role="status"></div>
+      <button data-online="back" class="ghost">Back</button>
     </div>
 
     <div id="screen-practice" class="screen" hidden>

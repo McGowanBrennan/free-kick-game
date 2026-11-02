@@ -1,6 +1,8 @@
 // Menu screens: main, match setup, practice setup, how to play, settings and match end.
 
-import type { Difficulty, MatchState, PlayerId, SpotCategory } from '@fk/shared';
+import type { Difficulty, MatchState, PlayerId, Seat, SpotCategory } from '@fk/shared';
+import type { OnlineClient } from '../net/online';
+import { Lobby } from './lobby';
 
 /** Free kicks (shoot and keep) or field goals (kick only, the wind is the opponent). */
 export type GameMode = 'freekick' | 'fieldgoal';
@@ -20,9 +22,18 @@ export interface PracticeConfig {
   trace: boolean;
 }
 
-export type GameConfig = MatchConfig | PracticeConfig;
+/** A friend match over the network: the connection, our seat, and both names (by seat). */
+export interface OnlineConfig {
+  kind: 'online';
+  mode: GameMode;
+  conn: OnlineClient;
+  seat: Seat;
+  names: [string, string];
+}
 
-const SCREENS = ['menu', 'match', 'practice', 'end', 'howto', 'settings'] as const;
+export type GameConfig = MatchConfig | PracticeConfig | OnlineConfig;
+
+const SCREENS = ['menu', 'match', 'practice', 'online', 'end', 'howto', 'settings'] as const;
 const SEEN_HOWTO_KEY = 'fk.howto';
 const INSTALL_TIP_KEY = 'fk.installTip';
 
@@ -55,6 +66,7 @@ function loadChoices(): Record<string, string> {
 export class Menu {
   private readonly choices = loadChoices();
   private endResolve: ((v: 'rematch' | 'menu') => void) | null = null;
+  private readonly lobby: Lobby;
 
   constructor(
     private readonly onStart: (cfg: GameConfig) => void,
@@ -90,6 +102,21 @@ export class Menu {
     document.querySelectorAll<HTMLElement>('[data-go]').forEach((b) =>
       b.addEventListener('click', () => this.go(b.dataset.go!)),
     );
+    this.lobby = new Lobby(
+      (cfg) => {
+        this.show(null);
+        this.onStart(cfg);
+      },
+      () => this.choices.mode as GameMode,
+      () => this.show('menu'),
+    );
+    document.querySelectorAll<HTMLButtonElement>('[data-online]').forEach((b) => b.addEventListener('click', () => hooks.press()));
+  }
+
+  /** Straight to "Play a friend" (an invite link), joining its room. */
+  openOnline(code?: string): void {
+    this.show('online');
+    this.lobby.open(code);
   }
 
   private show(screen: Screen | null): void {
@@ -104,6 +131,9 @@ export class Menu {
       case 'howto':
       case 'settings':
         this.show(target);
+        break;
+      case 'online':
+        this.openOnline();
         break;
       case 'howto-done':
         try {

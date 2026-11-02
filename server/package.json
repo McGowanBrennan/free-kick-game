@@ -1,0 +1,14 @@
+{
+  "name": "@fk/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/main.js --external:ws",
+    "start": "node dist/main.js",
+    "dev": "npm run build && node dist/main.js"
+  },
+  "dependencies": {
+    "@fk/shared": "*",
+    "ws": "^8.22.1"
+  }
+}

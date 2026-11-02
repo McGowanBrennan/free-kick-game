@@ -246,6 +246,8 @@ Level after five, the game stops for it: the crowd falls silent, black letterbox
 
 ## 6. Multiplayer (real-time)
 
+**Built (v1, friends):** the server is `server/` (Node 20, `ws`), one process serving the built game and the matches on one port; rooms in memory. The protocol is `shared/src/protocol.ts` (the messages below, as built) and the match engine `server/src/room.ts` (tested headless in `server/test/room.test.ts`, a whole match on fake timers). The client side is `client/src/net/online.ts` (the connection: clock sync, reconnect, an ordered inbox) and `client/src/game/online-session.ts` (the match, reusing the AI match's scenes). Differences from the plan below: no Quick Match queue yet (friends only); the friend who joins calls the toss and the winner chooses to kick or keep first (§5.5); on a reconnect the kick in play starts over rather than resuming mid-phase; the shooter's view isn't held 150 ms behind (the keeper's flick re-sims the shooter's playback as it arrives, as a local flick does); names are 2–16 letters, unfiltered; no connection-quality icon yet.
+
 ### 6.1 Architecture
 - **Authoritative server** holds the match state machine, runs the sim, and validates inputs. It is backend-agnostic: a reference implementation in Node.js with WebSockets (`ws`), with in-memory rooms and one match per room. The protocol is plain JSON over WebSocket, so it can be re-hosted on any platform that supports WebSockets.
 - **Clock sync:** NTP-style pings on connect and every 10 s give the client an estimate of the server-time offset and round-trip time (RTT).
@@ -269,6 +271,8 @@ LOBBY → COIN_TOSS → ROUND_INTRO → [WALL_SETUP] → AIM → RUNUP → FLIGH
 7. When the sim resolves, the server broadcasts `kick_result` {outcome, tag, keeperInput, wall, score}. Clients re-sim locally for the replay, which is deterministic and identical on both phones.
 
 ### 6.4 Messages
+As built (`shared/src/protocol.ts`): client → server `hello` {name, token?}, `create` {mode}, `join` {code}, `leave`, `ping` {c, rtt}, `call` {side}, `choose` {kickFirst}, `wall`, `kick` {input}, `keeper` {input}, `emote` {kind}, `ready`, `rematch`; server → client `welcome` {token}, `room` {code, mode, seat, names}, `pong` {c, s}, `opponent` {connected, name}, `toss_call` {caller, deadline}, `toss` {call, side, winner, deadline}, `toss_choice` {chooser, kickFirst, firstShooter}, `kick_start` {n, round, shooter, spot, wind, cam, clock0, aimMs, kicks}, `wall` {wall, deadline}, `committed` {contact, launch?}, `launch` (to the keeper, at contact), `keeper` (the flick, to the shooter), `result` {launch, keeper, wall, outcome, tag, scored, kicks}, `emote`, `end` {winner, kicks, forfeit}, `rematch` {seat}, `error`. The original plan:
+
 | Client → Server | Server → Client |
 |---|---|
 | `hello` {token?, nickname} | `welcome` {token, playerId} |
