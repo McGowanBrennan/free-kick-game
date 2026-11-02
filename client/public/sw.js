@@ -1,7 +1,7 @@
 // Offline support for the home-screen app: the page itself is fetched fresh
 // when there's a connection (so updates arrive) and served from the cache when
 // there isn't; everything else (hashed scripts, styles, icons) is cache-first.
-const CACHE = 'fk-v10';
+const CACHE = 'fk-v11';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icons/icon-192.png'])));

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { DEFAULT_PARAMS, KeeperSim, TAP, makeSpot, planKeeper, v3 } from '@fk/shared';
 import { sound } from './audio/sound';
 import { Gestures } from './game/gestures';
+import { OnlineSession } from './game/online-session';
 import { Session } from './game/session';
 import { ViewControl } from './game/view';
 import { Hud } from './ui/hud';
@@ -51,7 +52,7 @@ function showBackdrop(): void {
 }
 
 function start(cfg: GameConfig): void {
-  const s = new Session(world, hud, gestures, view, menu, cfg);
+  const s = cfg.kind === 'online' ? new OnlineSession(world, hud, gestures, view, menu, cfg) : new Session(world, hud, gestures, view, menu, cfg);
   session = s;
   if (import.meta.env.DEV) Object.assign((window as unknown as { __fk: object }).__fk, { session: s });
   void s.run().then((next) => {
@@ -142,6 +143,11 @@ if (quick.startsWith('practice-') && quick !== 'practice-fieldgoals') {
   );
 } else if (quick === 'lab-keeper') {
   lab = keeperLab();
+} else if (new URLSearchParams(location.search).has('room')) {
+  // An invite link: straight to the friend's room (and tidy the link out of the address bar).
+  const code = new URLSearchParams(location.search).get('room') ?? '';
+  history.replaceState(null, '', location.pathname);
+  menu.openOnline(code);
 } else {
   // PRESS START (the tap also wakes the audio up).
   const title = document.getElementById('title')!;

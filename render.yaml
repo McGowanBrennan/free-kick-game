@@ -1,0 +1,13 @@
+# Render blueprint: one web service that builds the game and runs the server
+# (game files and friend matches on one port). New → Blueprint → this repo.
+services:
+  - type: web
+    name: free-kick-duel
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build && npm run server:build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"

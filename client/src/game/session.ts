@@ -46,6 +46,7 @@ import {
   type FieldGoalResult,
   type FieldGoalSetup,
   type FieldGoalTag,
+  type KeeperInput,
   type KickInput,
   type KickStyle,
   type LaunchState,
@@ -86,15 +87,17 @@ const SUDDEN_DEATH_AIM_SECONDS = 7;
 const WALL_SECONDS = 8;
 
 export class Quit extends Error {}
+/** The server started the kick (or the toss) over (a reconnect): drop what's in hand and pick up the new one. */
+export class Restart extends Error {}
 
-const CATEGORY_LABEL: Record<SpotCategory, string> = {
+export const CATEGORY_LABEL: Record<SpotCategory, string> = {
   penalty: 'Penalty',
   outside_box: 'Edge of the box',
   long_range: 'Long range',
   field_goal: 'Field goal',
 };
 
-const FG_RESULT_TEXT: Record<FieldGoalTag, [string, string, OutcomeTag]> = {
+export const FG_RESULT_TEXT: Record<FieldGoalTag, [string, string, OutcomeTag]> = {
   good: ["It's good!", '', 'clean'],
   doink_in: ["It's good!", 'Doink… and in off the woodwork', 'off_post'],
   wide_left: ['No good', 'Wide left', 'wide'],
@@ -120,7 +123,7 @@ const TAUNTS: Record<'keeper' | 'gunner', { kind: Emote; icon: string; label: st
 };
 
 /** How a free kick went, for the home crowd (the player's): who it was good for, how near, how wild. */
-function freeKickReaction(r: SimResult, humanShoots: boolean): Reaction {
+export function freeKickReaction(r: SimResult, humanShoots: boolean): Reaction {
   const goal = r.outcome === 'goal';
   const c = r.lineCrossing;
   const off = c ? Math.hypot(Math.max(0, Math.abs(c.x) - GOAL_HALF_WIDTH), Math.max(0, c.y - GOAL_HEIGHT)) : Infinity;
@@ -131,7 +134,7 @@ function freeKickReaction(r: SimResult, humanShoots: boolean): Reaction {
 }
 
 /** How a field goal went, for the home crowd. */
-function fieldGoalReaction(r: FieldGoalResult, humanKicks: boolean): Reaction {
+export function fieldGoalReaction(r: FieldGoalResult, humanKicks: boolean): Reaction {
   const c = r.crossing;
   const wideBy = c ? Math.abs(c.x) - FG_HALF_WIDTH : Infinity;
   const shortBy = c ? FG_BAR_Y - c.y : Infinity;
@@ -141,9 +144,9 @@ function fieldGoalReaction(r: FieldGoalResult, humanKicks: boolean): Reaction {
 }
 
 /** Metres to yards, for field goal distances. */
-const YARDS = 1 / 0.9144;
+export const YARDS = 1 / 0.9144;
 
-const RESULT_TEXT: Record<OutcomeTag, [string, string]> = {
+export const RESULT_TEXT: Record<OutcomeTag, [string, string]> = {
   clean: ['Goal!', ''],
   off_post: ['Goal!', 'In off the post'],
   off_bar: ['Goal!', 'In off the bar'],
@@ -163,7 +166,7 @@ const RESULT_TEXT: Record<OutcomeTag, [string, string]> = {
 
 /** The result shows this long after the kick is decided, for this long, while play runs on. */
 const RESULT_DELAY_TICKS = Math.round(0.12 * TICK_RATE);
-const RESULT_MS = 1400;
+export const RESULT_MS = 1400;
 const LIVE_TAIL_TICKS = Math.round((RESULT_MS / 1000) * TICK_RATE);
 /** The replay runs on past the decision long enough to see the keeper land. */
 const REPLAY_TAIL_TICKS = Math.round(0.7 * TICK_RATE);
@@ -228,7 +231,7 @@ interface Chase {
 const CHASE_OMEGA = 4;
 
 /** Field goal read-out: speed, how steeply it went up, and any hook or slice. */
-function describeFieldGoal(k: KickInput, launch: LaunchState): string {
+export function describeFieldGoal(k: KickInput, launch: LaunchState): string {
   const v = launch.vel;
   const mph = Math.round(Math.hypot(v.x, v.y, v.z) * 2.237);
   const deg = Math.round((Math.atan2(v.y, Math.hypot(v.x, v.z)) * 180) / Math.PI);
@@ -238,7 +241,7 @@ function describeFieldGoal(k: KickInput, launch: LaunchState): string {
   return `${mph} mph · ${deg}° up${bend}${over}`;
 }
 
-function describeKick(k: KickInput, launch: LaunchState, spot: Spot): string {
+export function describeKick(k: KickInput, launch: LaunchState, spot: Spot): string {
   const v = launch.vel;
   const kmh = Math.round(Math.hypot(v.x, v.y, v.z) * 3.6);
   const style = kickStyle(k, launch, P);
@@ -251,28 +254,28 @@ function describeKick(k: KickInput, launch: LaunchState, spot: Spot): string {
 }
 
 export class Session {
-  private readonly abort = new AbortController();
-  private readonly rand = mulberry32((Math.random() * 2 ** 32) >>> 0);
-  private readonly profile: AiProfile;
-  private readonly seed = (Math.random() * 2 ** 31) | 0;
-  private playing: Playing | null = null;
+  protected readonly abort = new AbortController();
+  protected readonly rand = mulberry32((Math.random() * 2 ** 32) >>> 0);
+  protected readonly profile: AiProfile;
+  protected readonly seed = (Math.random() * 2 ** 31) | 0;
+  protected playing: Playing | null = null;
   /** Per-frame pose while nothing is in flight (intro, wall, aim) */
-  private idle: (() => void) | null = null;
-  private hints = { shoot: 0, keep: 0, camera: 0, cam: 0, taunt: 0, wind: 0 };
+  protected idle: (() => void) | null = null;
+  protected hints = { shoot: 0, keep: 0, camera: 0, cam: 0, taunt: 0, wind: 0 };
   /** This kick could decide the match: the crowd hushes while it's lined up */
-  private pressure = false;
+  protected pressure = false;
   /** Sudden death: a shorter shot clock */
-  private suddenDeath = false;
+  protected suddenDeath = false;
 
   constructor(
-    private readonly world: World,
-    private readonly hud: Hud,
-    private readonly gestures: Gestures,
-    private readonly view: ViewControl,
-    private readonly menu: Menu,
-    private readonly cfg: GameConfig,
+    protected readonly world: World,
+    protected readonly hud: Hud,
+    protected readonly gestures: Gestures,
+    protected readonly view: ViewControl,
+    protected readonly menu: Menu,
+    protected readonly cfg: GameConfig,
   ) {
-    this.profile = AI_PROFILES[cfg.difficulty];
+    this.profile = AI_PROFILES[cfg.kind === 'online' ? 'medium' : cfg.difficulty];
   }
 
   quit(): void {
@@ -299,40 +302,53 @@ export class Session {
 
   // ── Async helpers that stop when the player quits ──────────────────────
 
-  private guard<T>(executor: (resolve: (v: T) => void) => (() => void) | void): Promise<T> {
+  /** Called off (online: the server started the kick over) */
+  protected kickAbort = new AbortController();
+
+  protected guard<T>(executor: (resolve: (v: T) => void) => (() => void) | void): Promise<T> {
     const signal = this.abort.signal;
+    const kick = this.kickAbort.signal;
     return new Promise<T>((resolve, reject) => {
       if (signal.aborted) return reject(new Quit());
+      if (kick.aborted) return reject(new Restart());
       let cleanup: (() => void) | void = undefined;
       const onAbort = () => {
+        kick.removeEventListener('abort', onRestart);
         cleanup?.();
         reject(new Quit());
       };
+      const onRestart = () => {
+        signal.removeEventListener('abort', onAbort);
+        cleanup?.();
+        reject(new Restart());
+      };
       signal.addEventListener('abort', onAbort, { once: true });
+      kick.addEventListener('abort', onRestart, { once: true });
       cleanup = executor((v) => {
         signal.removeEventListener('abort', onAbort);
+        kick.removeEventListener('abort', onRestart);
         cleanup?.();
         resolve(v);
       });
     });
   }
 
-  private sleep(ms: number): Promise<void> {
+  protected sleep(ms: number): Promise<void> {
     return this.guard<void>((done) => {
       const id = window.setTimeout(done, ms);
       return () => clearTimeout(id);
     });
   }
 
-  private async banner(title: string, sub: string, tone: 'good' | 'bad' | 'info', ms: number): Promise<void> {
+  protected async banner(title: string, sub: string, tone: 'good' | 'bad' | 'info', ms: number): Promise<void> {
     await Promise.race([this.hud.banner(title, sub, tone, ms), this.guard<void>(() => undefined)]);
   }
 
   // ── Modes ──────────────────────────────────────────────────────────────
 
-  private async runMatch(): Promise<'rematch' | 'menu'> {
+  protected async runMatch(): Promise<'rematch' | 'menu'> {
     const fieldGoals = this.cfg.mode === 'fieldgoal';
-    const level = this.cfg.difficulty;
+    const level = this.cfg.kind === 'online' ? 'medium' : this.cfg.difficulty;
     const names: [string, string] = ['You', `AI ${level[0].toUpperCase()}${level.slice(1)}`];
     this.hud.setNames(names);
     this.hud.setScoreboardVisible(true);
@@ -377,7 +393,7 @@ export class Session {
     return this.menu.showEnd(state, won, names);
   }
 
-  private async runPractice(): Promise<'menu'> {
+  protected async runPractice(): Promise<'menu'> {
     if (this.cfg.kind !== 'practice') return 'menu';
     const cfg = this.cfg;
     this.hud.setScoreboardVisible(false);
@@ -401,7 +417,7 @@ export class Session {
   }
 
   /** Field goal practice: you kick; each new spot is from a random round's range and wind. */
-  private async runFieldGoalPractice(): Promise<'menu'> {
+  protected async runFieldGoalPractice(): Promise<'menu'> {
     this.world.stadium.setScreens(['PRACTICE', 'FIELD GOALS', 'TRAINING SESSION']);
     const pick = (): [Spot, Vec3, CableCam | null] => {
       const round = 1 + Math.floor(this.rand() * 6);
@@ -422,7 +438,7 @@ export class Session {
    * What the next kick means, if it could decide the match: from the player's
    * side, whether it can win it or lose it (null: neither).
    */
-  private stakes(state: MatchState, shooter: PlayerId, fieldGoals: boolean): { text: string; tone: 'win' | 'must' } | null {
+  protected stakes(state: MatchState, shooter: PlayerId, fieldGoals: boolean): { text: string; tone: 'win' | 'must' } | null {
     const ifScored = winner(recordKick(state, { shooter, scored: true, outcome: 'goal', tag: 'clean' }));
     const ifMissed = winner(recordKick(state, { shooter, scored: false, outcome: 'miss', tag: 'wide' }));
     if (shooter === 0) {
@@ -441,7 +457,7 @@ export class Session {
    * screen's edges pulse, the shot clock is shorter, and the crowd hushes
    * for every kick.
    */
-  private async suddenDeathIntro(spot: Spot, fieldGoals: boolean): Promise<void> {
+  protected async suddenDeathIntro(spot: Spot, fieldGoals: boolean): Promise<void> {
     // (The view: low behind the goal, looking out at the field, rising to the spot.)
     const { world, hud } = this;
     this.suddenDeath = true;
@@ -468,7 +484,8 @@ export class Session {
    * the referee flips it and points to the winner, and the winner chooses:
    * kick first, or keep (defend) first. Returns who kicks first.
    */
-  private async coinToss(fieldGoals: boolean, aiName: string): Promise<PlayerId> {
+  /** The coin toss scene at midfield: returns its clock (s since it began). */
+  protected startTossScene(fieldGoals: boolean): () => number {
     const { world, hud } = this;
     const mode = fieldGoals ? 'fieldgoal' : 'freekick';
     world.setMode(mode);
@@ -486,6 +503,32 @@ export class Session {
       world.coinToss.pose(clock());
       world.rig.set(world.coinToss.cam(clock(), world.camera.aspect));
     };
+    return clock;
+  }
+
+  protected endTossScene(): void {
+    this.idle = null;
+    this.world.showCoinToss(false);
+  }
+
+  /** Two buttons along the bottom; resolves with the index tapped, or `fallback` after `ms`. */
+  protected pick(options: { icon: string; label: string }[], ms: number, fallback: number, onTimeout?: () => void): Promise<number> {
+    return this.guard<number>((done) => {
+      const close = this.hud.emotes(options, done);
+      const id = window.setTimeout(() => {
+        onTimeout?.();
+        done(fallback);
+      }, ms);
+      return () => {
+        close();
+        clearTimeout(id);
+      };
+    });
+  }
+
+  protected async coinToss(fieldGoals: boolean, aiName: string): Promise<PlayerId> {
+    const { world, hud } = this;
+    const clock = this.startTossScene(fieldGoals);
     try {
       await this.sleep(1700);
       // The player calls it (or it's called for them). Messages go up top: the middle of the screen is the coin's.
@@ -552,8 +595,7 @@ export class Session {
       await this.banner(youFirst ? `You ${kickWord.toLowerCase()} first` : `${aiName} ${kickWord.toLowerCase()}s first`, choice, 'info', 1800);
       return youFirst ? 0 : 1;
     } finally {
-      this.idle = null;
-      world.showCoinToss(false);
+      this.endTossScene();
     }
   }
 
@@ -566,7 +608,7 @@ export class Session {
    * swipe: high enough over the hands at the line, into the wind, and clear
    * of the cam wherever it'll have swung to by then.
    */
-  private async playFieldGoal(spot: Spot, wind: Vec3, cam: CableCam | null, humanKicks: boolean): Promise<KickOutcome> {
+  protected async playFieldGoal(spot: Spot, wind: Vec3, cam: CableCam | null, humanKicks: boolean): Promise<KickOutcome> {
     const { world, hud } = this;
     world.setMode('fieldgoal');
     world.setFieldGoalTeams(humanKicks ? KITS.fbYou : KITS.fbAi, humanKicks ? KITS.fbAi : KITS.fbYou);
@@ -655,10 +697,10 @@ export class Session {
       sound.setCrowd(react.homeGood ? 0.7 : 0.3, 3);
       world.stadium.cheer(react.homeGood ? 1 : react.near ? 0.5 : 0.15);
       shown = this.banner(title, sub, humanKicks === r.good ? 'good' : 'bad', RESULT_MS);
-    }, { start: performance.now(), pre: Math.round(FG_OP_TIME * TICK_RATE) }, () => {
+    }, { from: { start: performance.now(), pre: Math.round(FG_OP_TIME * TICK_RATE) }, onScore: () => {
       sound.goal(humanKicks);
       world.stadium.cheer(humanKicks ? 1 : 0.4);
-    });
+    } });
     await shown;
     if (this.cfg.kind === 'practice' && this.cfg.trace) world.setTrace(pb.result.frames!.ball);
     await this.playReplay(pb);
@@ -675,7 +717,7 @@ export class Session {
   }
 
   /** The wind on the HUD, as the view (looking along `fwd`) shows it; returns its speed in mph. */
-  private showWind(wind: Vec3, fwd: { x: number; z: number }): number {
+  protected showWind(wind: Vec3, fwd: { x: number; z: number }): number {
     // Along the view (+ = from behind) and across it (+ = to the right).
     const along = wind.x * fwd.x + wind.z * fwd.z;
     const across = wind.x * -fwd.z + wind.z * fwd.x;
@@ -687,18 +729,22 @@ export class Session {
   // ── Taunts ─────────────────────────────────────────────────────────────
 
   /** The player's taunt buttons (as the keeper, or the gunner on a field goal), while the opposition lines up. */
-  private tauntBar(who: 'keeper' | 'gunner'): () => void {
+  protected tauntBar(who: 'keeper' | 'gunner'): () => void {
     const list = TAUNTS[who];
     if (this.hints.taunt++ === 0) this.hud.toast('Get in their head: pick a taunt');
     // Spam away: every tap cuts straight into that taunt.
     return this.hud.emotes(list, (i) => {
       this.world.emote(who, list[i].kind);
       sound.taunt(true);
+      this.onTaunt(list[i].kind);
     });
   }
 
+  /** The player taunted (online: the friend sees it). */
+  protected onTaunt(_kind: Emote): void {}
+
   /** The AI's keeper or gunner sometimes has a go while the player lines up: a burst of two to four taunts. Returns a cancel. */
-  private aiTaunt(who: 'keeper' | 'gunner'): () => void {
+  protected aiTaunt(who: 'keeper' | 'gunner'): () => void {
     if (this.rand() > 0.5) return () => undefined;
     const ids: number[] = [];
     let at = 900 + this.rand() * 1500;
@@ -718,7 +764,7 @@ export class Session {
   }
 
   /** Resolve once `cond` holds (checked every 50 ms), or after `maxMs` regardless (a spammed taunt can't hold the kick up for ever). */
-  private until(cond: () => boolean, maxMs = Infinity): Promise<void> {
+  protected until(cond: () => boolean, maxMs = Infinity): Promise<void> {
     if (cond()) return Promise.resolve();
     const end = performance.now() + maxMs;
     return this.guard<void>((done) => {
@@ -729,7 +775,7 @@ export class Session {
 
   // ── One kick ───────────────────────────────────────────────────────────
 
-  private async playKick(spot: Spot, wind: Vec3, humanShoots: boolean): Promise<KickOutcome> {
+  protected async playKick(spot: Spot, wind: Vec3, humanShoots: boolean): Promise<KickOutcome> {
     const { world, hud } = this;
     world.setMode('freekick');
     world.setWind(wind);
@@ -826,10 +872,10 @@ export class Session {
       this.world.stadium.cheer(react.homeGood ? 1 : react.near ? 0.45 : 0.15);
       sound.setCrowd(react.homeGood ? 0.7 : 0.3, 3);
       shown = this.banner(title, sub, humanShoots === (r.outcome === 'goal') ? 'good' : 'bad', RESULT_MS);
-    }, undefined, () => {
+    }, { onScore: () => {
       sound.goal(humanShoots);
       this.world.stadium.cheer(humanShoots ? 1 : 0.4);
-    });
+    } });
     await shown;
 
     const r = pb.result;
@@ -843,7 +889,7 @@ export class Session {
     return { outcome: r.outcome, tag: r.tag, scored };
   }
 
-  private humanWall(spot: Spot): Promise<WallConfig | null> {
+  protected humanWall(spot: Spot): Promise<WallConfig | null> {
     const cfg: WallConfig = { size: spot.maxWall, offset: 0 };
     const apply = () => this.world.setWall(wallLayout(spot, cfg).players);
     apply();
@@ -882,7 +928,7 @@ export class Session {
     });
   }
 
-  private humanAim(spot: Spot, maxAimY = MAX_AIM_Y): Promise<KickInput | null> {
+  protected humanAim(spot: Spot, maxAimY = MAX_AIM_Y): Promise<KickInput | null> {
     const seconds = this.suddenDeath ? SUDDEN_DEATH_AIM_SECONDS : AIM_SECONDS;
     const deadline = performance.now() + seconds * 1000;
     if (this.hints.shoot++ < 2) this.hud.hint(
@@ -927,7 +973,20 @@ export class Session {
    * field goal from the snap (`from`: when it was, and how many ticks before
    * contact that is).
    */
-  private playLive(pb: Playable, humanKeeps: boolean, onResult: () => void, from?: { start: number; pre: number }, onScore?: () => void): Promise<void> {
+  /**
+   * Play the kick live. The clock runs from the start of the run-up, or for a
+   * field goal from the snap (`from`: when it was, and how many ticks before
+   * contact that is). Online: `waiting` holds the result back until the real
+   * flight comes in (swapPlayback), and the keeper's flick is handed to
+   * `onKeeperInput` as well.
+   */
+  protected playLive(
+    pb: Playable,
+    humanKeeps: boolean,
+    onResult: () => void,
+    opts: { from?: { start: number; pre: number }; onScore?: () => void; onKeeperInput?: (input: KeeperInput) => void; waiting?: boolean } = {},
+  ): Promise<void> {
+    const { from, onScore } = opts;
     if (humanKeeps && this.hints.keep++ < 2) this.hud.hint('Flick to dive · tap to stay big', 'keep');
     if (!from) sound.whistle();
     sound.setPhase('live');
@@ -954,8 +1013,8 @@ export class Session {
         start,
         pre,
         tick: -pre,
-        end: pb.endTick + RESULT_DELAY_TICKS + LIVE_TAIL_TICKS,
-        resultTick: pb.endTick + RESULT_DELAY_TICKS,
+        end: opts.waiting ? Infinity : pb.endTick + RESULT_DELAY_TICKS + LIVE_TAIL_TICKS,
+        resultTick: opts.waiting ? Infinity : pb.endTick + RESULT_DELAY_TICKS,
         onResult,
         slow: null,
         track: TRACK[humanKeeps ? 'keep' : 'shoot'],
@@ -971,9 +1030,11 @@ export class Session {
         let flicked = false;
         this.gestures.mode = 'keep';
         const keeperX = pb.setup.spot.keeperX;
+        // (Online, the playback is swapped for the real one when the flight comes in.)
+        const current = () => (this.playing?.pb ?? pb) as KickPlayback;
         const inputOf = (samples: SwipeSample[], flickTick: number) =>
           keeperInputFor(
-            diveTarget(samples, pb.keeperAt(this.playing?.tick ?? 0), this.world.camera),
+            diveTarget(samples, current().keeperAt(this.playing?.tick ?? 0), this.world.camera),
             keeperX,
             samples[samples.length - 1].t - samples[0].t,
             flickTick,
@@ -988,9 +1049,8 @@ export class Session {
           this.hud.hint(null);
           const input = inputOf(samples, Math.round(-RUNUP_TICKS + ((endTime - start) * TICK_RATE) / 1000));
           this.world.showDive(plannedHands(input, keeperX));
-          pb.setKeeper(input);
-          this.playing.end = pb.endTick + RESULT_DELAY_TICKS + LIVE_TAIL_TICKS;
-          this.playing.resultTick = pb.endTick + RESULT_DELAY_TICKS;
+          this.applyKeeper(input);
+          opts.onKeeperInput?.(input);
         };
       }
       return () => {
@@ -1003,7 +1063,26 @@ export class Session {
     });
   }
 
-  private async playReplay(pb: Playable): Promise<void> {
+  /** A keeper's flick for the kick in play (the player's, or online, the friend's): re-sim and reschedule the result. */
+  protected applyKeeper(input: KeeperInput): void {
+    const p = this.playing;
+    if (!p || !(p.pb instanceof KickPlayback)) return;
+    p.pb.setKeeper(input);
+    if (p.end === Infinity) return;
+    p.end = p.pb.endTick + RESULT_DELAY_TICKS + LIVE_TAIL_TICKS;
+    p.resultTick = p.pb.endTick + RESULT_DELAY_TICKS;
+  }
+
+  /** Online: the real flight's in (the keeper's side learns it at contact): play on with it. */
+  protected swapPlayback(pb: Playable): void {
+    const p = this.playing;
+    if (!p) return;
+    p.pb = pb;
+    p.end = pb.endTick + RESULT_DELAY_TICKS + LIVE_TAIL_TICKS;
+    p.resultTick = pb.endTick + RESULT_DELAY_TICKS;
+  }
+
+  protected async playReplay(pb: Playable): Promise<void> {
     const { world } = this;
     sound.setPhase('between');
     const spot = pb.setup.spot;
@@ -1048,7 +1127,7 @@ export class Session {
   // ── Per frame ──────────────────────────────────────────────────────────
 
   /** Every contact since the last frame: the strike, woodwork, gloves, wall, turf, boards and net. */
-  private playSounds(p: Playing): void {
+  protected playSounds(p: Playing): void {
     const { pb } = p;
     const from = p.heard;
     const to = p.tick;
@@ -1078,7 +1157,7 @@ export class Session {
   }
 
   /** The camera runs up the pitch as the ball travels, smoothly however it's moving (or bouncing back). */
-  private updateChase(c: Chase, ball: Vec3, spot: Spot, dt: number): void {
+  protected updateChase(c: Chase, ball: Vec3, spot: Spot, dt: number): void {
     c.reached = Math.max(c.reached, Math.min(1, Math.max(0, (spot.z - ball.z) / spot.z)));
     const w = CHASE_OMEGA;
     for (let left = dt; left > 1e-6; left -= 1 / 240) {

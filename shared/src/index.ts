@@ -9,6 +9,7 @@ export * from './keeper';
 export * from './launch';
 export * from './match';
 export * from './net';
+export * from './protocol';
 export * from './params';
 export * from './rng';
 export * from './scenarios';
