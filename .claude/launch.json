@@ -2,9 +2,21 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "client",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:lan"
+      ],
+      "port": 5175
+    },
+    {
       "name": "harness",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "harness:lan"],
+      "runtimeArgs": [
+        "run",
+        "harness:lan"
+      ],
       "port": 5174
     }
   ]

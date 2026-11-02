@@ -1,23 +1,11 @@
-// Helpers that invert the input mappings: aim at a point, or dive to where the
-// ball will be. Used by the tuning tools now and by the AI opponent later.
+// Helpers that invert the keeper's input mapping: dive to where the ball will
+// be. (The shooter's inverse, kickInputForTarget, lives with the solver in launch.ts.)
 
-import { GOAL_HALF_WIDTH } from './geometry';
-import { INPUT, type KeeperInput, type KickInput } from './input';
+import type { KeeperInput } from './input';
 import { flickForHandTarget } from './keeper';
 import type { LaunchState } from './launch';
 import type { SimParams } from './params';
 import { simulateKick, type KickSetup } from './sim';
-import { clamp } from './vec';
-
-export function kickInputForTarget(x: number, y: number, power: number, curve: number, p: SimParams): KickInput {
-  return {
-    u: clamp(x / (GOAL_HALF_WIDTH + p.aimOutsidePost), -1, 1),
-    L: INPUT.minAimLen + clamp(y / p.maxTargetHeight, 0, 1) * (INPUT.maxAimLen - INPUT.minAimLen),
-    p: power,
-    c: curve,
-    durMs: 150,
-  };
-}
 
 export const TAP: Omit<KeeperInput, 'flickTick'> = { vx: 0, vy: 0, durMs: 80 };
 

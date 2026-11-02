@@ -4,13 +4,18 @@
   "type": "module",
   "workspaces": [
     "shared",
+    "client",
     "harness"
   ],
   "scripts": {
+    "dev": "npm run dev -w @fk/client",
+    "dev:lan": "npm run dev -w @fk/client -- --host",
+    "build": "npm run build -w @fk/client",
+    "preview": "npm run preview -w @fk/client -- --host",
     "harness": "npm run dev -w @fk/harness",
     "harness:lan": "npm run dev -w @fk/harness -- --host",
     "test": "vitest run",
-    "typecheck": "tsc -p shared && tsc -p harness",
+    "typecheck": "tsc -p shared && tsc -p client && tsc -p harness",
     "golden": "node -e \"require('fs').rmSync('shared/golden/determinism.json',{force:true})\" && vitest run determinism"
   },
   "devDependencies": {

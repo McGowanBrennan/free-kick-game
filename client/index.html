@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1220" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Free Kick" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="description" content="One flick. Five kicks. A free kick duel: curl it, chip it, or keep it out." />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon-192.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <title>Free Kick Duel</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="splash">
+      <div class="logo">FREE KICK<br /><span>DUEL</span></div>
+      <div class="tip"><b>TIP</b> Bend it into the wind. The wind doesn't care how you feel.</div>
+      <div class="loading" aria-label="Loading">LOADING<i>.</i><i>.</i><i>.</i></div>
+    </div>
+    <div id="title" hidden>
+      <div class="logo">FREE KICK<br /><span>DUEL</span></div>
+      <div class="press">PRESS START</div>
+      <div class="legal">© 2004 Fictional Sports Interactive · All teams, players and sponsors are made up · Not endorsed by any league</div>
+    </div>
+    <div id="pressure" aria-hidden="true"></div>
+    <div id="sudden-death" aria-hidden="true" hidden>
+      <div class="bar top"></div>
+      <div class="bar bottom"></div>
+      <div class="flash"></div>
+      <div class="card">
+        <div class="kicker">All square after five</div>
+        <div class="title">Sudden<br />death</div>
+        <div class="sub"></div>
+      </div>
+    </div>
+    <div id="wipe" aria-hidden="true"><div class="band"></div><div class="crest"><span>FK</span></div></div>
+    <div id="memcard" hidden>
+      <div class="card"></div>
+      <div>Saving data. Do not remove the MEMORY CARD (8MB) in MEMORY CARD slot 1, or switch off the console.</div>
+    </div>
+    <div id="rotate" aria-hidden="true">
+      <div class="phone"></div>
+      <div>Turn your phone upright to play</div>
+    </div>
+    <div id="stage"></div>
+    <canvas id="trail"></canvas>
+    <div id="touch"></div>
+
+    <div id="hud" hidden>
+      <div id="scoreboard">
+        <div class="row" data-player="0"><span class="name"></span><span class="dots"></span><span class="goals"></span></div>
+        <div class="row" data-player="1"><span class="name"></span><span class="dots"></span><span class="goals"></span></div>
+      </div>
+      <div id="round"></div>
+      <div id="role"></div>
+      <div id="stakes" hidden></div>
+      <svg id="timer" viewBox="0 0 44 44" hidden>
+        <circle class="track" cx="22" cy="22" r="18" />
+        <circle class="fill" cx="22" cy="22" r="18" />
+        <text x="22" y="27" text-anchor="middle"></text>
+      </svg>
+      <button id="quit" class="ghost small" aria-label="Leave">✕</button>
+      <button id="sound-toggle" class="ghost small" aria-label="Sound">🔊</button>
+      <button id="view-reset" class="ghost small" aria-label="Reset camera" hidden>⟲</button>
+      <div id="replay-tag" hidden><span class="rec"></span>REPLAY</div>
+      <div id="wind" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L19 13 L14 13 L14 21 L10 21 L10 13 L5 13 Z" /></svg>
+        <span class="speed"></span>
+      </div>
+      <div id="readout"></div>
+      <div id="emotes" hidden></div>
+    </div>
+
+    <div id="confirm-quit" class="sheet" hidden>
+      <div class="sheet-title">Leave this game?</div>
+      <div class="sheet-sub">Your progress in this match will be lost.</div>
+      <button data-confirm="stay" class="primary">Keep playing</button>
+      <button data-confirm="leave">Leave</button>
+    </div>
+
+    <div id="banner"><div class="title"></div><div class="sub"></div></div>
+    <div id="prompt"></div>
+    <div id="hint"><div class="finger"></div><div class="text"></div></div>
+    <div id="toast"></div>
+
+    <div id="wall-controls" class="sheet" hidden>
+      <div class="sheet-title">Set your wall</div>
+      <div class="sheet-sub">Drag anywhere to slide it</div>
+      <div class="stepper">
+        <button data-step="-1" aria-label="Fewer players">−</button>
+        <span id="wall-size"></span>
+        <button data-step="1" aria-label="More players">+</button>
+      </div>
+      <button id="wall-done" class="primary">Ready</button>
+    </div>
+
+    <div id="practice-bar" class="sheet" hidden>
+      <button data-choice="again">Same spot</button>
+      <button data-choice="new" class="primary">New spot</button>
+      <button data-choice="menu" class="ghost">Menu</button>
+    </div>
+
+    <div id="screen-menu" class="screen" hidden>
+      <div id="install-tip" hidden>
+        <span>Play full screen: tap <b>Share</b> then <b>Add to Home Screen</b>.</span>
+        <button class="ghost small" aria-label="Dismiss">✕</button>
+      </div>
+      <div class="brand">
+        <div class="logo">FREE KICK<br /><span>DUEL</span></div>
+        <div class="tagline">One flick. Five kicks. No mercy.</div>
+      </div>
+      <div class="menu-buttons">
+        <button data-go="match" class="primary big">Play vs AI</button>
+        <button data-go="practice" class="big">Practice</button>
+        <button class="big" disabled>Online <small>coming soon</small></button>
+        <div class="menu-row">
+          <button data-go="howto" class="ghost">How to play</button>
+          <button data-go="settings" class="ghost">Settings</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-howto" class="screen" hidden>
+      <div class="screen-title">How to play</div>
+      <div class="howto">
+        <div class="card">
+          <svg viewBox="0 0 120 90" aria-hidden="true"><rect class="goal" x="20" y="10" width="80" height="30" /><circle class="ball" cx="60" cy="80" r="5" /><path class="swipe" d="M60 74 L84 18" /><circle class="aim" cx="84" cy="18" r="4" /></svg>
+          <div><b>Shoot</b> Swipe from the ball to where you want it to go and lift your finger there. Swipe faster for more power: the trail turns from blue to red. Too hard and it rises over.</div>
+        </div>
+        <div class="card">
+          <svg viewBox="0 0 120 90" aria-hidden="true"><rect class="goal" x="20" y="10" width="80" height="30" /><circle class="ball" cx="60" cy="80" r="5" /><path class="swipe" d="M60 74 Q100 50 34 18" /><circle class="aim" cx="34" cy="18" r="4" /></svg>
+          <div><b>Curl</b> Bend your swipe: the ball sets off the way you start and curls round to where you finish. Start outside the wall, finish at the far post.</div>
+        </div>
+        <div class="card">
+          <svg viewBox="0 0 120 90" aria-hidden="true"><rect class="goal" x="20" y="10" width="80" height="30" /><circle class="ball" cx="60" cy="80" r="5" /><path class="swipe" d="M60 74 L60 24 L60 44" /><circle class="aim" cx="60" cy="24" r="4" /></svg>
+          <div><b>Chip</b> Swipe up and snap straight back down: the top of your swipe is the aim. From the penalty spot, softly down the middle, it's a Panenka.</div>
+        </div>
+        <div class="card">
+          <svg viewBox="0 0 120 90" aria-hidden="true"><rect class="goal" x="10" y="44" width="100" height="26" /><circle class="keeper" cx="60" cy="62" r="6" /><path class="swipe keep" d="M60 62 L22 50" /><circle class="aim keep" cx="22" cy="50" r="5" /></svg>
+          <div><b>Keep</b> Flick from the keeper toward where you want to dive; the ring shows where your hands will go. Straight up jumps. Tap to stay big in the middle. While the shooter lines up, tap a taunt to get in their head.</div>
+        </div>
+        <div class="card">
+          <svg viewBox="0 0 120 90" aria-hidden="true"><path class="goal" d="M42 6 L42 44 L78 44 L78 6 M60 44 L60 70" /><circle class="ball" cx="60" cy="82" r="5" /><path class="swipe" d="M60 76 Q58 46 50 24" /><circle class="aim" cx="50" cy="24" r="4" /></svg>
+          <div><b>Field goals</b> Swipe over the bar between the uprights: your swipe calls the snap. Lift it over the hands at the line, aim (or bend it) into the wind, and mind the cable cam swinging over the field: it'll have moved by the time the ball gets there.</div>
+        </div>
+      </div>
+      <button data-go="howto-done" class="primary big">Got it</button>
+    </div>
+
+    <div id="screen-settings" class="screen" hidden>
+      <div class="screen-title">Settings</div>
+      <div class="field">
+        <label>Sound</label>
+        <div class="seg" data-key="sound">
+          <button data-value="on">On</button><button data-value="off">Off</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Picture</label>
+        <div class="seg" data-key="retro">
+          <button data-value="on">Retro 480i</button><button data-value="off">Clean</button>
+        </div>
+      </div>
+      <button data-go="reset-views" class="big">Reset camera views</button>
+      <div class="credits">
+        Free Kick Duel · all teams, players and sponsors are fictional.<br />
+        Stadium crowds and cheers supplied by the developer. Whistle: dklon (CC-BY 3.0). Kick, glove, post, bounce and net sounds: AntumDeluge, BMacZero, artisticdude (CC0), via OpenGameArt.org.
+      </div>
+      <button data-go="menu" class="primary big">Done</button>
+    </div>
+
+    <div id="screen-match" class="screen" hidden>
+      <div class="screen-title">Play vs AI</div>
+      <div class="field">
+        <label>Game</label>
+        <div class="seg" data-key="mode">
+          <button data-value="freekick">Free kicks</button><button data-value="fieldgoal">Field goals</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Opponent</label>
+        <div class="seg" data-key="difficulty">
+          <button data-value="easy">Easy</button><button data-value="medium">Medium</button><button data-value="hard">Hard</button>
+        </div>
+      </div>
+      <button data-go="start-match" class="primary big">Kick off</button>
+      <button data-go="menu" class="ghost">Back</button>
+    </div>
+
+    <div id="screen-practice" class="screen" hidden>
+      <div class="screen-title">Practice</div>
+      <div class="field">
+        <label>Game</label>
+        <div class="seg" data-key="mode">
+          <button data-value="freekick">Free kicks</button><button data-value="fieldgoal">Field goals</button>
+        </div>
+      </div>
+      <div class="field fk-only">
+        <label>Role</label>
+        <div class="seg" data-key="role">
+          <button data-value="shoot">Shoot</button><button data-value="keep">Keep</button><button data-value="alternate">Both</button>
+        </div>
+      </div>
+      <div class="field fk-only">
+        <label>Spot</label>
+        <div class="seg wrap" data-key="category">
+          <button data-value="any">Any</button><button data-value="penalty">Penalty</button><button data-value="outside_box">Edge</button><button data-value="long_range">Long</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>AI</label>
+        <div class="seg" data-key="difficulty">
+          <button data-value="easy">Easy</button><button data-value="medium">Medium</button><button data-value="hard">Hard</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Show ball path</label>
+        <div class="seg" data-key="trace">
+          <button data-value="on">On</button><button data-value="off">Off</button>
+        </div>
+      </div>
+      <button data-go="start-practice" class="primary big">Start</button>
+      <button data-go="menu" class="ghost">Back</button>
+    </div>
+
+    <div id="screen-end" class="screen" hidden>
+      <div class="end-result"></div>
+      <div class="end-score"></div>
+      <div class="end-kicks"></div>
+      <button data-go="rematch" class="primary big">Rematch</button>
+      <button data-go="menu" class="ghost">Menu</button>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

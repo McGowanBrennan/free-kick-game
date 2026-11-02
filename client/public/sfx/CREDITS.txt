@@ -1,0 +1,26 @@
+Sound credits (the WAVs are trimmed, mixed to mono and resampled for the game)
+
+soccer-default-1.mp3, soccer-default-2.mp3, soccer-goal-cheer.mp3,
+nfl-default-1.mp3, nfl-default-2.mp3, nfl-kick-good.mp3
+  Supplied by the game's developer (the soccer and NFL stadium crowds and their
+  cheers), used as supplied; the game levels, loops and crossfades them as it plays.
+
+whistle.wav
+  From "Whistles" by dklon
+  https://opengameart.org/node/121038
+  License: CC-BY 3.0 https://creativecommons.org/licenses/by/3.0/
+
+kick.wav, save.wav, thwack.wav, tick.wav
+  From "Thwack Sounds" by AntumDeluge
+  https://opengameart.org/content/thwack-sounds
+  License: CC0 1.0
+
+post.wav, bounce.wav
+  From "Metal Impact Sounds" by BMacZero (bing1.wav, thud2.wav)
+  https://opengameart.org/content/metal-impact-sounds
+  License: CC0 1.0
+
+net.wav
+  From "Swishes Sound Pack" by artisticdude (swish_9.wav)
+  https://opengameart.org/content/swishes-sound-pack
+  License: CC0 1.0

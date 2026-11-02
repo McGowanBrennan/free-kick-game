@@ -8,8 +8,6 @@ import {
   BAR_Y,
   DT,
   GOAL_CROSS_Z,
-  GOAL_HALF_WIDTH,
-  GOAL_HEIGHT,
   KEEPER_Z,
   MAX_SIM_TICKS,
   NET_DEPTH,
@@ -21,6 +19,7 @@ import {
 import type { KeeperInput } from './input';
 import { HAND_PARTS, KeeperSim, planKeeper, type KeeperPart, type PartKind } from './keeper';
 import type { LaunchState } from './launch';
+import { stepNetBall, type NetBall } from './net';
 import { DEFAULT_PARAMS, type SimParams } from './params';
 import type { Spot } from './spots';
 import { wallJumpY, wallLayout, type WallConfig, type WallLayout } from './wall';
@@ -42,6 +41,8 @@ import {
 export interface KickSetup {
   spot: Spot;
   wall: WallConfig | null;
+  /** Horizontal wind, m/s (drag and Magnus act on the ball's speed through the air); calm if left out */
+  wind?: Vec3;
 }
 
 export type Outcome = 'goal' | 'save' | 'blocked' | 'miss';
@@ -59,7 +60,9 @@ export type OutcomeTag =
   | 'wide'
   | 'over'
   | 'woodwork_out'
-  | 'short';
+  | 'short'
+  /** Never produced by the sim: the shooter ran out the shot clock */
+  | 'shot_clock';
 
 type ColliderKind = 'post' | 'bar' | 'wall' | 'keeper';
 
@@ -83,6 +86,8 @@ export interface SimFrames {
   ball: Float64Array;
   keeper: KeeperPart[][];
   wallY: Float64Array;
+  /** The keeper as simulated, to keep animating (landing from a dive) after the kick is decided */
+  keeperSim: KeeperSim | null;
 }
 
 export interface SimResult {
@@ -139,8 +144,8 @@ function reflect(vel: Vec3, n: Vec3, u: Vec3, restitution: number, tangentKeep: 
 }
 
 /** Tick at which the ball in free flight reaches the keeper's plane (Infinity if never). */
-export function ballArrivalTick(launch: LaunchState, p: SimParams): number {
-  return flyToPlane(launch.pos, launch.vel, launch.spin, p, KEEPER_Z)?.tick ?? Infinity;
+export function ballArrivalTick(launch: LaunchState, p: SimParams, wind: Vec3 = ZERO): number {
+  return flyToPlane(launch.pos, launch.vel, launch.spin, p, KEEPER_Z, wind)?.tick ?? Infinity;
 }
 
 const f64 = new Float64Array(1);
@@ -163,12 +168,13 @@ export function simulateKick(
   let vel = launch.vel;
   let spin = launch.spin;
   let rolling = false;
+  const wind = setup.wind ?? ZERO;
 
   const wall =
     setup.wall && setup.spot.maxWall > 0 && setup.wall.size > 0 ? wallLayout(setup.spot, setup.wall) : null;
   const keeper = opts.noKeeper
     ? null
-    : new KeeperSim(planKeeper(keeperInput, setup.spot.keeperX, p), setup.spot.keeperX, p, ballArrivalTick(launch, p));
+    : new KeeperSim(planKeeper(keeperInput, setup.spot.keeperX, p), setup.spot.keeperX, p, ballArrivalTick(launch, p, wind));
   let keeperParts: KeeperPart[] = keeper ? keeper.partsAt(0) : [];
 
   const events: SimEvent[] = [];
@@ -252,26 +258,13 @@ export function simulateKick(
 
     if (goalTick !== null) {
       // In the net: visual only, the outcome is already decided.
-      vel = v3(vel.x * 0.96, vel.y * 0.98 - p.gravity * DT, vel.z * 0.96);
-      pos = addScaled(pos, vel, DT);
-      if (pos.z < -NET_DEPTH + r) {
-        pos = v3(pos.x, pos.y, -NET_DEPTH + r);
-        vel = v3(vel.x, vel.y, Math.abs(vel.z) * 0.1);
-      }
-      if (Math.abs(pos.x) > GOAL_HALF_WIDTH - r) {
-        const sx = pos.x > 0 ? 1 : -1;
-        pos = v3(sx * (GOAL_HALF_WIDTH - r), pos.y, pos.z);
-        vel = v3(-vel.x * 0.1, vel.y, vel.z);
-      }
-      if (pos.y > GOAL_HEIGHT - r) {
-        pos = v3(pos.x, GOAL_HEIGHT - r, pos.z);
-        vel = v3(vel.x, Math.min(vel.y, 0), vel.z);
-      }
-      if (pos.y < r) {
-        pos = v3(pos.x, r, pos.z);
-        vel = v3(vel.x, Math.abs(vel.y) * 0.3, vel.z);
-      }
+      const b: NetBall = { x: pos.x, y: pos.y, z: pos.z, vx: vel.x, vy: vel.y, vz: vel.z };
+      stepNetBall(b, p);
+      pos = v3(b.x, b.y, b.z);
+      vel = v3(b.vx, b.vy, b.vz);
       if (tick - goalTick >= NET_TICKS) end = 'net';
+      // The keeper carries on with the dive (visual only: the goal is decided).
+      if (keeper) keeperParts = keeper.partsAt(tick);
       hash = hashNum(hashNum(hashNum(hash, pos.x), pos.y), pos.z);
       record(wall ? wallJumpY(tick * DT, p) : 0);
       continue;
@@ -282,8 +275,8 @@ export function simulateKick(
     const wallY0 = wall ? wallJumpY((tick - 1) * DT, p) : 0;
     const wallY1 = wall ? wallJumpY(tick * DT, p) : 0;
 
-    // Forces: gravity, drag, Magnus.
-    const acc = ballAccel(vel, spin, p);
+    // Forces: gravity, drag, Magnus (on the ball's speed through the air).
+    const acc = ballAccel(sub(vel, wind), spin, p);
     let ax = acc.x;
     let ay = acc.y;
     let az = acc.z;
@@ -375,7 +368,12 @@ export function simulateKick(
       pos = v3(pos.x, r, pos.z);
       if (vel.y < -GROUND_BOUNCE_MIN) {
         events.push({ tick, kind: 'ground', speed: -vel.y, pos });
-        vel = v3(vel.x * p.groundTangential, -vel.y * p.groundRestitution, vel.z * p.groundTangential);
+        // Friction acts only while the ball is in contact, so a steep bounce loses
+        // up to (1 − groundTangential) of its pace but a skimming drive skids on.
+        const hs = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+        const loss = Math.min(p.groundFriction * (1 + p.groundRestitution) * -vel.y, (1 - p.groundTangential) * hs);
+        const keep = hs > 1e-9 ? 1 - loss / hs : 1;
+        vel = v3(vel.x * keep, -vel.y * p.groundRestitution, vel.z * keep);
         spin = scale(spin, 0.8);
       } else if (vel.y < 0) {
         vel = v3(vel.x, 0, vel.z);
@@ -411,7 +409,8 @@ export function simulateKick(
       const touched = keeperTouched || wallTouched || lastWoodwork !== null;
       if (touched && vel.z > 0.5 && pos.z > 1) end = 'away';
       else if (rolling && length(vel) < 0.3) end = 'stopped';
-      else if (Math.abs(pos.x) > 40 || pos.z > 60 || pos.z < -NET_DEPTH - 1) end = 'out';
+      // Out of play before it reaches the advertising boards (the scene carries it on from there).
+      else if (Math.abs(pos.x) > 35 || pos.z > 60 || pos.z < -NET_DEPTH - 1) end = 'out';
     }
 
     hash = hashNum(hashNum(hashNum(hash, pos.x), pos.y), pos.z);
@@ -460,7 +459,7 @@ export function simulateKick(
     wall,
     hash,
     frames: opts.record
-      ? { ball: Float64Array.from(ballFrames), keeper: keeperFrames, wallY: Float64Array.from(wallFrames) }
+      ? { ball: Float64Array.from(ballFrames), keeper: keeperFrames, wallY: Float64Array.from(wallFrames), keeperSim: keeper }
       : undefined,
   };
 }

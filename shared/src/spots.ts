@@ -9,13 +9,14 @@ import {
 } from './geometry';
 import { clamp } from './vec';
 
-export type SpotCategory = 'penalty' | 'inside_box' | 'outside_box' | 'long_range';
+/** Kicks inside the box are always penalties; free kicks come from outside it. Field goals have their own spots. */
+export type SpotCategory = 'penalty' | 'outside_box' | 'long_range' | 'field_goal';
 
-export const SPOT_CATEGORIES: readonly SpotCategory[] = ['penalty', 'inside_box', 'outside_box', 'long_range'];
+export const SPOT_CATEGORIES: readonly SpotCategory[] = ['penalty', 'outside_box', 'long_range'];
 
 export const SPOT_WEIGHTS: Readonly<Record<SpotCategory, number>> = {
-  penalty: 0.15,
-  inside_box: 0.2,
+  penalty: 0.35,
+  field_goal: 0,
   outside_box: 0.4,
   long_range: 0.25,
 };
@@ -85,19 +86,13 @@ export function generateSpot(rand: () => number, category: SpotCategory = pickCa
   for (let attempt = 0; attempt < 200; attempt++) {
     let x: number;
     let z: number;
-    if (category === 'inside_box') {
-      x = rand() * 14;
-      z = 8 + rand() * 8;
-      if (goalMouthAngleDeg(x, z) < 14) continue;
-    } else {
-      const long = category === 'long_range';
-      const d = long ? 25 + rand() * 10 : 18 + rand() * 7;
-      const a = rand() * (long ? 30 : 40) * DEG;
-      x = d * Math.sin(a);
-      z = d * Math.cos(a);
-      if (insideBox(x, z)) continue;
-    }
+    const long = category === 'long_range';
+    const d = long ? 25 + rand() * 10 : 18 + rand() * 7;
+    const a = rand() * (long ? 30 : 40) * DEG;
+    x = d * Math.sin(a);
+    z = d * Math.cos(a);
+    if (insideBox(x, z)) continue;
     return makeSpot(category, x * mirror, z);
   }
-  return makeSpot(category, 0, category === 'long_range' ? 30 : category === 'outside_box' ? 21 : 13);
+  return makeSpot(category, 0, category === 'long_range' ? 30 : 21);
 }
