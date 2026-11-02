@@ -62,7 +62,7 @@ import {
   type WallConfig,
 } from '@fk/shared';
 import { sound } from '../audio/sound';
-import type { Hud } from '../ui/hud';
+import type { Glyph, Hud } from '../ui/hud';
 import type { GameConfig, Menu } from '../ui/menu';
 import { KITS } from '../world/figure';
 import { fieldGoalHeading, type CamPose, type World } from '../world/world';
@@ -109,16 +109,16 @@ export const FG_RESULT_TEXT: Record<FieldGoalTag, [string, string, OutcomeTag]> 
 };
 
 /** The taunts: the keeper's on the line, and the field goal rush's right-hand gunner's. */
-const TAUNTS: Record<'keeper' | 'gunner', { kind: Emote; icon: string; label: string; says: string }[]> = {
+const TAUNTS: Record<'keeper' | 'gunner', { kind: Emote; glyph: Glyph; label: string; says: string }[]> = {
   keeper: [
-    { kind: 'wobble', icon: '🍝', label: 'Jelly legs', says: 'Jelly legs on the line' },
-    { kind: 'barslap', icon: '🙌', label: 'Bar slap', says: 'Slapping the crossbar' },
-    { kind: 'starman', icon: '⭐', label: 'Star man', says: 'Filling the goal' },
+    { kind: 'wobble', glyph: 'triangle', label: 'Jelly legs', says: 'Jelly legs on the line' },
+    { kind: 'barslap', glyph: 'circle', label: 'Bar slap', says: 'Slapping the crossbar' },
+    { kind: 'starman', glyph: 'square', label: 'Star man', says: 'Filling the goal' },
   ],
   gunner: [
-    { kind: 'hype', icon: '🔥', label: 'Hype', says: 'Jumping up the crowd' },
-    { kind: 'airplane', icon: '✈️', label: 'Airplane', says: 'Doing the airplane' },
-    { kind: 'wardance', icon: '🥁', label: 'War dance', says: 'Stomping it out' },
+    { kind: 'hype', glyph: 'triangle', label: 'Hype', says: 'Jumping up the crowd' },
+    { kind: 'airplane', glyph: 'circle', label: 'Airplane', says: 'Doing the airplane' },
+    { kind: 'wardance', glyph: 'square', label: 'War dance', says: 'Stomping it out' },
   ],
 };
 
@@ -301,6 +301,9 @@ export class Session {
   }
 
   // ── Async helpers that stop when the player quits ──────────────────────
+
+  /** A tap skips the replay (not online: both players watch it through, so they stay in step) */
+  protected replaySkippable = true;
 
   /** Called off (online: the server started the kick over) */
   protected kickAbort = new AbortController();
@@ -512,7 +515,7 @@ export class Session {
   }
 
   /** Two buttons along the bottom; resolves with the index tapped, or `fallback` after `ms`. */
-  protected pick(options: { icon: string; label: string }[], ms: number, fallback: number, onTimeout?: () => void): Promise<number> {
+  protected pick(options: { glyph: Glyph; label: string }[], ms: number, fallback: number, onTimeout?: () => void): Promise<number> {
     return this.guard<number>((done) => {
       const close = this.hud.emotes(options, done);
       const id = window.setTimeout(() => {
@@ -536,8 +539,8 @@ export class Session {
       const call = await this.guard<CoinSide>((done) => {
         const close = hud.emotes(
           [
-            { icon: '🙂', label: 'Heads' },
-            { icon: '⭐', label: 'Tails' },
+            { glyph: 'circle', label: 'Heads' },
+            { glyph: 'cross', label: 'Tails' },
           ],
           (i) => done(i === 0 ? 'heads' : 'tails'),
         );
@@ -569,8 +572,8 @@ export class Session {
         kickFirst = await this.guard<boolean>((done) => {
           const close = hud.emotes(
             [
-              { icon: fieldGoals ? '🏈' : '⚽', label: `${kickWord} first` },
-              { icon: fieldGoals ? '🛡️' : '🧤', label: `${keepWord} first` },
+              { glyph: 'cross', label: `${kickWord} first` },
+              { glyph: 'square', label: `${keepWord} first` },
             ],
             (i) => done(i === 0),
           );
@@ -1092,7 +1095,7 @@ export class Session {
     world.rig.setTrack(null);
     this.view.setRole('replay', v3(spot.x * 0.3, 1, spot.z * 0.3));
     world.rig.set(world.replayCam(spot));
-    this.hud.hint('Tap to skip');
+    if (this.replaySkippable) this.hud.hint('Tap to skip');
     this.hud.replayTag(true);
     await this.guard<void>((done) => {
       this.playing = {
@@ -1114,7 +1117,7 @@ export class Session {
         onScore: null,
         done,
       };
-      this.gestures.onTap = done;
+      if (this.replaySkippable) this.gestures.onTap = done;
       return () => {
         this.playing = null;
         this.gestures.onTap = null;

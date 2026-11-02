@@ -1609,3 +1609,362 @@ body.sudden-death #round {
 #screen-online .online-status.error {
   color: #ff7a6e;
 }
+
+/* An invite opens just the join card. */
+#screen-online .invite-title {
+  display: none;
+  text-align: center;
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 18px;
+}
+#screen-online .invite-title b {
+  color: var(--accent);
+  letter-spacing: 0.12em;
+}
+#screen-online[data-view='invite'] .invite-title {
+  display: block;
+}
+#screen-online[data-view='invite'] .create-only {
+  display: none;
+}
+#screen-online label small {
+  color: var(--muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ── The console look for every button ───────────────────────────────────
+   Early-2000s console menus: glossy bevelled chrome (a hard highlight split
+   across the middle), thick dark outlines, a solid drop shadow, chunky
+   italic capitals with an outline; the main action in gold with a light
+   sweeping across it, the rest in cobalt chrome; option pickers as recessed
+   tracks with a lit tab; panels in brushed-metal frames; and the controller's
+   face-button shapes (drawn, not emoji) on taunts, confirms and backs. */
+
+:root {
+  --chrome-gold: linear-gradient(180deg, #fffbe0 0%, #ffe066 22%, #ffc21a 48%, #e39400 52%, #f6b100 78%, #ffd75a 100%);
+  --chrome-blue: linear-gradient(180deg, #b9d0ff 0%, #5d8cf0 22%, #2d5bd0 48%, #183a98 52%, #234fbd 80%, #3f6fe0 100%);
+  --chrome-steel: linear-gradient(180deg, #e9eef6 0%, #aab4c6 24%, #6d788f 48%, #3c4558 52%, #586379 80%, #8a95ab 100%);
+  --chrome-dark: linear-gradient(180deg, #5c6680 0%, #303850 46%, #171c2c 54%, #232b42 100%);
+  --outline: #050812;
+}
+
+/* Every button: dark chrome, bevelled, outlined, sitting on a hard shadow. */
+button {
+  position: relative;
+  border: 2px solid var(--outline);
+  border-radius: 7px;
+  background: var(--chrome-dark);
+  color: #fff;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-shadow:
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    1px 1px 0 #000,
+    0 2px 2px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.35),
+    0 3px 0 var(--outline),
+    0 6px 10px rgba(0, 0, 0, 0.45);
+  transform: none;
+  transition: filter 0.1s;
+}
+button:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 1px 0 var(--outline);
+  filter: brightness(1.15);
+}
+button:disabled {
+  filter: saturate(0.3) brightness(0.7);
+  opacity: 0.6;
+}
+button.primary,
+button.big.primary,
+#practice-bar button.primary,
+#wall-done {
+  background: var(--chrome-gold);
+  color: #2a1600;
+  border-color: #3a2000;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -3px 0 rgba(120, 60, 0, 0.45),
+    0 3px 0 #3a2000,
+    0 6px 14px rgba(0, 0, 0, 0.5),
+    0 0 18px rgba(255, 196, 40, 0.25);
+  overflow: hidden;
+}
+button.ghost {
+  background: var(--chrome-dark);
+}
+
+/* The menu's big buttons: tall, square-shouldered, no slant. */
+button.big,
+#practice-bar button,
+#wall-done {
+  transform: none;
+  border-radius: 9px;
+  min-height: 56px;
+  font-size: 19px;
+  letter-spacing: 0.06em;
+}
+button.big:active,
+#practice-bar button:active,
+#wall-done:active {
+  transform: translateY(2px);
+}
+button.big:not(.primary):not(.ghost) {
+  background: var(--chrome-blue);
+  border: 2px solid var(--outline);
+}
+
+/* A light sweeping across the main action every few seconds. */
+button.primary::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.75) 48%, transparent 60%);
+  transform: translateX(-120%);
+  animation: chrome-sweep 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes chrome-sweep {
+  0%,
+  62% {
+    transform: translateX(-120%);
+  }
+  88%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+/* Controller face-button shapes: a black lozenge with the coloured symbol. */
+.glyph {
+  display: inline-block;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  vertical-align: middle;
+  background:
+    var(--sym) center / 62% no-repeat,
+    radial-gradient(circle at 34% 28%, #6b717d 0%, #23262d 45%, #050507 100%);
+  box-shadow:
+    inset 0 -2px 3px rgba(0, 0, 0, 0.7),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    0 0 0 2px rgba(0, 0, 0, 0.6),
+    0 2px 3px rgba(0, 0, 0, 0.5);
+}
+.glyph.triangle {
+  --sym: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 4.5 20.5 19H3.5Z' fill='none' stroke='%2338e0a8' stroke-width='2.6' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.glyph.circle {
+  --sym: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='7.5' fill='none' stroke='%23ff5a72' stroke-width='2.6'/%3E%3C/svg%3E");
+}
+.glyph.cross {
+  --sym: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5.5 5.5 18.5 18.5M18.5 5.5 5.5 18.5' stroke='%2366b8ff' stroke-width='2.8' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.glyph.square {
+  --sym: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='5.5' y='5.5' width='13' height='13' fill='none' stroke='%23ff86dc' stroke-width='2.6'/%3E%3C/svg%3E");
+}
+
+/* Confirm (the main action) carries ✕, Back carries △, the way console menus did. */
+button.big.primary::before,
+#wall-done::before {
+  content: '';
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  margin: -4px 10px -4px 0;
+  vertical-align: middle;
+  border-radius: 50%;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5.5 5.5 18.5 18.5M18.5 5.5 5.5 18.5' stroke='%2366b8ff' stroke-width='2.8' stroke-linecap='round'/%3E%3C/svg%3E") center / 62% no-repeat,
+    radial-gradient(circle at 34% 28%, #6b717d 0%, #23262d 45%, #050507 100%);
+  box-shadow: 0 0 0 2px rgba(60, 30, 0, 0.6);
+}
+button[data-go='menu'].ghost::before,
+button[data-online='back']::before {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  margin: -3px 8px -3px 0;
+  vertical-align: middle;
+  border-radius: 50%;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 4.5 20.5 19H3.5Z' fill='none' stroke='%2338e0a8' stroke-width='2.6' stroke-linejoin='round'/%3E%3C/svg%3E") center / 62% no-repeat,
+    radial-gradient(circle at 34% 28%, #6b717d 0%, #23262d 45%, #050507 100%);
+}
+
+/* Option pickers: a recessed track; the chosen one a lit gold tab. */
+.seg {
+  gap: 4px;
+  padding: 4px;
+  border-radius: 9px;
+  border: 2px solid #3d4862;
+  background: linear-gradient(180deg, #03050b, #121a2e);
+  box-shadow:
+    inset 0 3px 6px rgba(0, 0, 0, 0.8),
+    0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.seg button {
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: #8f9bb3;
+  font-size: 15px;
+  text-shadow: 0 1px 0 #000;
+}
+.seg button:active {
+  transform: none;
+  box-shadow: none;
+}
+.seg button.on {
+  background: var(--chrome-gold);
+  border-color: #3a2000;
+  color: #2a1600;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.8),
+    0 0 12px rgba(255, 196, 40, 0.45);
+}
+
+/* Text fields: the same recessed track. */
+#screen-online input[type='text'] {
+  border: 2px solid #3d4862;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #03050b, #121a2e);
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.8);
+  font-weight: 800;
+  text-transform: none;
+}
+#screen-online input[type='text']:focus {
+  border-color: #ffd23f;
+  box-shadow:
+    inset 0 3px 6px rgba(0, 0, 0, 0.8),
+    0 0 12px rgba(255, 210, 63, 0.4);
+}
+
+/* Screen titles in chrome, like the banners. */
+.screen-title {
+  font-family: var(--display);
+  font-size: 34px;
+  background: linear-gradient(180deg, #ffffff 0%, #dfe9ff 45%, #8fa9e8 55%, #e8efff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-stroke: 1.5px #050812;
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.6));
+}
+
+/* Panels (the wall, practice, leaving): brushed-metal frames. */
+.sheet {
+  border-radius: 10px;
+  border: 2px solid var(--outline);
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 5px),
+    linear-gradient(180deg, #2a3b6e 0%, #15214a 50%, #0b1230 100%);
+  box-shadow:
+    inset 0 0 0 2px #7d89a8,
+    inset 0 3px 0 2px rgba(255, 255, 255, 0.25),
+    0 8px 20px rgba(0, 0, 0, 0.6);
+}
+.sheet-title {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 0 #000;
+}
+.stepper button {
+  border-radius: 50%;
+  font-size: 24px;
+}
+
+/* The round in-game buttons: silver badges with drawn icons. */
+button.small {
+  border-radius: 50%;
+  background: var(--chrome-steel);
+  font-size: 0;
+  color: transparent;
+  text-shadow: none;
+}
+button.small::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: center / 52% no-repeat var(--icon);
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.6));
+}
+#quit,
+#install-tip button.small {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 6 18 18M18 6 6 18' stroke='%23101522' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+#sound-toggle {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 9.5h3.5L12 5.5v13l-4.5-4H4z' fill='%23101522'/%3E%3Cpath d='M15 9a4 4 0 0 1 0 6M17.5 6.5a7.5 7.5 0 0 1 0 11' fill='none' stroke='%23101522' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+#sound-toggle.off {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 9.5h3.5L12 5.5v13l-4.5-4H4z' fill='%23101522'/%3E%3Cpath d='M15.5 9.5l5 5M20.5 9.5l-5 5' stroke='%23c41f2a' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+#view-reset {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M18.5 12A6.5 6.5 0 1 1 15 6.3' fill='none' stroke='%23101522' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M13 3.5l4.5 2.8-2.9 4.3' fill='none' stroke='%23101522' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* Taunts (and the toss's choices): a face-button shape and the word, in a chrome capsule. */
+#emotes {
+  left: 8px;
+  right: 8px;
+  transform: none;
+  justify-content: center;
+  gap: 6px;
+}
+#emotes button {
+  flex: 1 1 0;
+  max-width: 150px;
+  flex-direction: row;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 8px 6px 6px;
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+  background: var(--chrome-blue);
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  transform: none;
+  text-align: left;
+}
+#emotes button .glyph {
+  width: 26px;
+  height: 26px;
+}
+#emotes button .label {
+  line-height: 1.05;
+}
+@keyframes emote-pop {
+  50% {
+    transform: scale(0.9);
+    filter: brightness(1.6);
+  }
+}
+#confirm-quit button {
+  border-radius: 7px;
+}
+/* On an invite, Join is the main action. */
+#screen-online[data-view='invite'] [data-online='join'] {
+  background: var(--chrome-gold);
+  color: #2a1600;
+  border-color: #3a2000;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}

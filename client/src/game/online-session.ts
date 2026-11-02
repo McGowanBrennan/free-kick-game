@@ -72,6 +72,7 @@ export class OnlineSession extends Session {
   private currentN = -1;
   private inFlow = false;
   private hintedTaunt = false;
+  protected replaySkippable = false;
 
   private get online(): OnlineConfig {
     return this.cfg as OnlineConfig;
@@ -134,8 +135,20 @@ export class OnlineSession extends Session {
     });
     conn.on('rematch', () => this.hud.toast(`${this.friend} wants a rematch`));
     conn.onDrop = (dropped) => this.hud.prompt(dropped ? 'Connection lost · reconnecting…' : null);
+    conn.onLost = () => {
+      this.hud.toast('The match ended');
+      this.quit();
+    };
     // A kick (or the toss) the server's started over: drop the one in hand.
+    // A new toss also drops a kick_start that arrived for the toss we're throwing away,
+    // or the client would play that kick while the server is back at the coin.
     conn.onQueue = (m) => {
+      if (m.t === 'error') {
+        this.hud.toast(m.msg);
+        this.quit();
+        return;
+      }
+      if (m.t === 'toss_call') this.online.conn.discard('toss', 'toss_choice', 'kick_start', 'wall', 'committed', 'result');
       if (!this.inFlow) return;
       if (m.t === 'end' || m.t === 'toss_call' || (m.t === 'kick_start' && m.n <= this.currentN)) this.kickAbort.abort();
     };
@@ -166,6 +179,7 @@ export class OnlineSession extends Session {
       clearInterval(opponentGone);
       for (const t of ['emote', 'opponent', 'rematch', 'keeper', 'launch'] as const) conn.on(t, null);
       conn.onDrop = null;
+      conn.onLost = null;
       conn.onQueue = null;
       this.gestures.mode = 'none';
       this.gestures.onTap = null;
@@ -212,8 +226,8 @@ export class OnlineSession extends Session {
         hud.setRound('Coin toss · call it!');
         const i = await this.pick(
           [
-            { icon: '🙂', label: 'Heads' },
-            { icon: '⭐', label: 'Tails' },
+            { glyph: 'circle', label: 'Heads' },
+            { glyph: 'cross', label: 'Tails' },
           ],
           this.msUntil(m.deadline),
           0,
@@ -238,8 +252,8 @@ export class OnlineSession extends Session {
         hud.setRound('You won the toss · choose');
         const i = await this.pick(
           [
-            { icon: fieldGoals ? '🏈' : '⚽', label: `${kickWord} first` },
-            { icon: fieldGoals ? '🛡️' : '🧤', label: `${keepWord} first` },
+            { glyph: 'cross', label: `${kickWord} first` },
+            { glyph: 'square', label: `${keepWord} first` },
           ],
           this.msUntil(t.deadline),
           0,

@@ -41,8 +41,15 @@ export class OnlineClient {
   private pingTimer = 0;
   private closedByUs = false;
   private connected = false;
+  /** Bumped so a socket we already replaced can't close the one that took its place */
+  private generation = 0;
+  private reconnecting = false;
+  /** Rejects an in-flight connect (leaving while it is still opening) */
+  private connectReject: ((err: Error) => void) | null = null;
   /** Told when the connection drops (true) or is back (false) */
   onDrop: ((dropped: boolean) => void) | null = null;
+  /** The seat is gone (the server restarted, or the match was cleared): stop waiting for it */
+  onLost: (() => void) | null = null;
   /** Rtt, ms (the best recent one) */
   get rtt(): number {
     return Number.isFinite(this.bestRtt) ? this.bestRtt : 150;
@@ -56,7 +63,14 @@ export class OnlineClient {
 
   /** Connect (resolves once the server has said welcome). */
   connect(): Promise<void> {
-    this.closedByUs = false;
+    const gen = ++this.generation;
+    const previous = this.ws;
+    if (previous) {
+      // This socket is done. Don't let its close start a second reconnect over the new one.
+      previous.onclose = null;
+      previous.onmessage = null;
+      previous.close();
+    }
     return new Promise((resolve, reject) => {
       const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
       let ws: WebSocket;
@@ -66,9 +80,20 @@ export class OnlineClient {
         return reject(e);
       }
       this.ws = ws;
-      let welcomed = false;
-      ws.onopen = () => this.send({ t: 'hello', name: this.name, token: this.token ?? undefined });
+      let settled = false;
+      const fail = (err: Error) => {
+        if (settled) return;
+        settled = true;
+        if (this.connectReject === fail) this.connectReject = null;
+        reject(err);
+      };
+      this.connectReject = fail;
+      ws.onopen = () => {
+        if (gen !== this.generation) return;
+        this.send({ t: 'hello', name: this.name, token: this.token ?? undefined });
+      };
       ws.onmessage = (ev) => {
+        if (gen !== this.generation) return;
         let m: ServerMsg;
         try {
           m = JSON.parse(String(ev.data)) as ServerMsg;
@@ -76,21 +101,25 @@ export class OnlineClient {
           return;
         }
         if (m.t === 'welcome') {
+          const hadToken = this.token !== null;
+          const lost = hadToken && m.restored === false;
           this.token = m.token;
-          if (!welcomed) {
-            welcomed = true;
+          if (!settled) {
+            settled = true;
             this.connected = true;
             this.startPings();
             resolve();
           }
+          if (lost) queueMicrotask(() => this.onLost?.());
           return;
         }
         if (m.t === 'pong') return this.onPong(m);
         this.deliver(m);
       };
       ws.onclose = () => {
+        if (gen !== this.generation) return;
         clearInterval(this.pingTimer);
-        if (!welcomed) return reject(new Error('Could not reach the game server'));
+        if (!settled) return fail(new Error('Could not reach the game server'));
         this.connected = false;
         if (this.closedByUs) return;
         this.onDrop?.(true);
@@ -101,26 +130,38 @@ export class OnlineClient {
 
   /** Back after a drop: try every second for as long as the server would hold the seat. */
   private async reconnect(): Promise<void> {
+    if (this.reconnecting || this.closedByUs) return;
+    this.reconnecting = true;
     const until = performance.now() + 25_000;
     while (!this.closedByUs && performance.now() < until) {
       await new Promise((r) => setTimeout(r, 1000));
+      if (this.closedByUs) break;
       try {
         await this.connect();
-        this.onDrop?.(false);
+        this.reconnecting = false;
+        if (!this.closedByUs) this.onDrop?.(false);
         return;
       } catch {
-        // Not yet.
+        // Not yet. Stay the only reconnect loop while this one keeps trying.
       }
     }
+    this.reconnecting = false;
   }
 
   close(): void {
     this.closedByUs = true;
+    this.generation++;
     clearInterval(this.pingTimer);
     if (this.connected) this.send({ t: 'leave' });
-    this.ws?.close();
+    const ws = this.ws;
     this.ws = null;
     this.connected = false;
+    this.connectReject?.(new Error('closed'));
+    this.connectReject = null;
+    if (ws) {
+      ws.onclose = null;
+      ws.close();
+    }
   }
 
   send(m: ClientMsg): void {

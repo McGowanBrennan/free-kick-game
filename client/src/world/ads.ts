@@ -201,7 +201,7 @@ export function fascia(length: number): THREE.MeshBasicMaterial {
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillStyle = '#ffffff';
-  g.fillText('FREE KICK ARENA', 360, 34);
+  g.fillText('FLICK ARENA', 360, 34);
   // Crest: a shield with a star.
   const crest = (x: number) => {
     g.fillStyle = '#ffd23f';
@@ -242,7 +242,7 @@ export class Screen {
     face.position.z = 0.26;
     this.mesh = new THREE.Mesh();
     this.mesh.add(frame, face);
-    this.show(['FREE KICK DUEL', '', 'WELCOME']);
+    this.show(['FLICK ARENA', '', 'WELCOME']);
   }
 
   /** Three lines: a header, the main line (big), and a footer. */

@@ -350,6 +350,18 @@ describe('outcomes', () => {
   });
 });
 
+describe('the keeper', () => {
+  test('no nutmegs: a low shot straight at a keeper who stays put is stopped (the legs close behind it)', () => {
+    const penalty = makeSpot('penalty', 0, 11);
+    for (const speed of [18, 24, 30])
+      for (const y of [0.11, 0.25, 0.4])
+        for (const dx of [-0.1, 0, 0.15]) {
+          const launch = computeLaunch(penalty, kickInputForTarget(penalty, penalty.keeperX + dx, y, powerForSpeed(speed, P), 0, P), P);
+          expect(simulateKick({ spot: penalty, wall: null }, launch, null, P).outcome, `${speed} m/s, ${y} m up, ${dx} m off`).not.toBe('goal');
+        }
+  });
+});
+
 describe('the net and the wind', () => {
   const edge = makeSpot('outside_box', 0, 20);
   const struck = (speed: number) => computeLaunch(edge, kickInputForTarget(edge, 1, 1, powerForSpeed(speed, P), 0, P), P);

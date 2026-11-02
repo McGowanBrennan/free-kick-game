@@ -1,6 +1,6 @@
-# Free Kick Duel
+# Flick Arena
 
-Real-time 1v1 free kick game for mobile web. Design: [SPEC.md](SPEC.md).
+Real-time 1v1 flick-to-kick game for mobile web: free kicks and field goals. Design: [SPEC.md](SPEC.md).
 
 ## Layout
 
@@ -47,7 +47,7 @@ Serve it over HTTPS in production (the hosts above do it for you). On iPhone, op
 - **Picture:** a deliberate PS2-era look: a low-res 16-bit framebuffer (dither, bloom, floodlight flares and shadows) shown through a CRT (scanline beams, soft composite colour, an aperture grille). Settings → Picture → *Clean* turns the filter off.
 - **Keep:** set the wall (drag to slide it, −/+ for players), then flick from the keeper toward the spot you want to reach, any time from the run-up on (a ring shows where the hands will go while you drag; flick across the goal's width to reach a post, diagonally for a top corner, straight up to jump), or tap to stay big.
 - **Sound:** recorded crowd, whistle, kicks, saves, woodwork, bounces and net (credits in `client/public/sfx/CREDITS.txt` and Settings), each ground with its own live crowd and its own cheer (real soccer and NFL stadium recordings, levelled and crossfaded so the crowd never loops the same way twice). The crowd is yours: it cheers every goal (yours loudest), goes quiet at your misses, and enjoys the AI's. Toggle with 🔊 in game or in Settings.
-- **Taunts:** while the AI lines up, get in its head, and spam them: as the keeper (jelly legs, bar slap, star man) or as the right-hand gunner on a field goal (hype, airplane, war dance). The AI sometimes has a go back.
+- **Taunts:** while the AI lines up, get in its head, and spam them: as the keeper (△ jelly legs, ○ bar slap, □ star man) or as the right-hand gunner on a field goal (△ hype, ○ airplane, □ war dance). The AI sometimes has a go back.
 - **Play a friend:** Play a friend → your name and the game → *Create a room*, then *Send the invite* (the share sheet, or the link copied) or read them the 6-letter code; they open the link (or type the code and tap *Join*) and the match starts: the coin toss (they call it, the winner chooses), then the same match as against the AI, with them keeping when you shoot and taunting you while you line up. Both phones see the same kicks: the server runs every one. If someone's connection drops, the match waits 20 seconds for them (the kick in play starts over when they're back); after that, or if they leave, the other wins. Rematch from the end screen.
 - **Camera:** two fingers to orbit and pinch to zoom (right-drag and the wheel on desktop). Your view is remembered separately for shooting and keeping; ⟲ resets it, and Settings → Reset camera views resets them all.
 

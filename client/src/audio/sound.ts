@@ -180,18 +180,19 @@ function cleanStretches(buf: AudioBuffer): [number, number][] {
   return out.filter(([a, b]) => b - a >= 4 * BED_XFADE);
 }
 
-/** A stereo recording folded to mono (half the memory for the long crowd beds). */
-function toMono(ctx: AudioContext, buf: AudioBuffer): AudioBuffer {
-  if (buf.numberOfChannels === 1) return buf;
-  const mono = ctx.createBuffer(1, buf.length, buf.sampleRate);
-  const out = mono.getChannelData(0);
-  const chans = Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c));
-  for (let i = 0; i < buf.length; i++) {
-    let s = 0;
-    for (const ch of chans) s += ch[i];
-    out[i] = s / chans.length;
-  }
-  return mono;
+/** The crowd beds are kept at this rate, in mono: a quarter of the memory of the 48 kHz stereo they decode to (phones run out). */
+const BED_RATE = 22050;
+
+/** A long crowd recording, folded to mono and resampled down (rendered offline). */
+async function shrink(buf: AudioBuffer): Promise<AudioBuffer> {
+  const OAC = window.OfflineAudioContext ?? (window as unknown as { webkitOfflineAudioContext?: typeof OfflineAudioContext }).webkitOfflineAudioContext;
+  if (!OAC) return buf;
+  const off = new OAC(1, Math.ceil(buf.duration * BED_RATE), BED_RATE);
+  const src = off.createBufferSource();
+  src.buffer = buf;
+  src.connect(off.destination);
+  src.start();
+  return off.startRendering();
 }
 
 interface PlayOpts {
@@ -218,6 +219,8 @@ export class Sound {
   /** When the crowd last answered a taunt (so spamming one doesn't stack a dozen cheers) */
   private tauntAt = -Infinity;
   private readonly buffers = new Map<SampleName, AudioBuffer>();
+  /** Loads under way (each sample is fetched once) */
+  private readonly loading = new Map<SampleName, Promise<void>>();
   /** Per-sample levelling (the cheers come in at very different volumes) */
   private readonly norm = new Map<SampleName, number>();
   private enabled: boolean;
@@ -323,29 +326,43 @@ export class Sound {
     this.setCrowd(this.crowdLevel, 2);
   }
 
+  /** Fetch and decode one sample (once; later calls share the first). The crowd beds are shrunk as they come in. */
+  private get(ctx: AudioContext, name: SampleName): Promise<void> {
+    let p = this.loading.get(name);
+    if (!p) {
+      p = (async () => {
+        try {
+          const res = await fetch(`/sfx/${FILES[name]}`);
+          if (!res.ok) throw new Error(`${res.status}`);
+          let buf = await ctx.decodeAudioData(await res.arrayBuffer());
+          if (name.includes('default')) buf = await shrink(buf);
+          this.buffers.set(name, buf);
+          if (CHEERS[name]) this.norm.set(name, CHEER_RMS / Math.max(1e-4, peakRms(buf)));
+        } catch (e) {
+          console.warn(`Sound: couldn't load ${FILES[name]}`, e);
+        }
+      })();
+      this.loading.set(name, p);
+    }
+    return p;
+  }
+
+  /** One ground's crowd, recording by recording (one at a time keeps a phone's memory down), then started. */
+  private async loadGround(ctx: AudioContext, theme: CrowdTheme): Promise<void> {
+    for (const n of GROUNDS[theme].bed) await this.get(ctx, n);
+    this.startBed(ctx, theme);
+  }
+
   private async load(ctx: AudioContext): Promise<void> {
-    const get = async (name: SampleName) => {
-      try {
-        const data = await (await fetch(`/sfx/${FILES[name]}`)).arrayBuffer();
-        let buf = await ctx.decodeAudioData(data);
-        if (name.includes('default')) buf = toMono(ctx, buf);
-        this.buffers.set(name, buf);
-        if (CHEERS[name]) this.norm.set(name, CHEER_RMS / Math.max(1e-4, peakRms(buf)));
-      } catch {
-        // A missing sample just stays silent.
-      }
-    };
     // The small things first (the effects and both grounds' cheers, so a
     // cheer is never missing however slow the connection), then the current
-    // ground's crowd, then the other's.
-    const first = this.theme;
-    const other: CrowdTheme = first === 'soccer' ? 'football' : 'soccer';
+    // ground's crowd, then the other's (unless a change of ground has
+    // already asked for it: setTheme).
     const beds = new Set<SampleName>([...GROUNDS.soccer.bed, ...GROUNDS.football.bed]);
-    await Promise.all((Object.keys(FILES) as SampleName[]).filter((n) => !beds.has(n)).map(get));
-    await Promise.all(GROUNDS[first].bed.map(get));
-    this.startBed(ctx, first);
-    await Promise.all(GROUNDS[other].bed.map(get));
-    this.startBed(ctx, other);
+    await Promise.all((Object.keys(FILES) as SampleName[]).filter((n) => !beds.has(n)).map((n) => this.get(ctx, n)));
+    const first = this.theme;
+    await this.loadGround(ctx, first);
+    await this.loadGround(ctx, first === 'soccer' ? 'football' : 'soccer');
   }
 
   private startBed(ctx: AudioContext, theme: CrowdTheme): void {
@@ -366,20 +383,26 @@ export class Sound {
     this.mixBeds(1.5);
   }
 
-  /** Which bed is up (crossfaded on a change of ground); the home crowd is a little quieter while the visitors line up. */
+  /**
+   * Which bed is up (crossfaded on a change of ground); the home crowd is a
+   * little quieter while the visitors line up. If this ground's crowd isn't
+   * in yet, the other ground's carries on meanwhile (a crowd, not silence).
+   */
   private mixBeds(seconds = 1.2): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const t = ctx.currentTime;
     const level = this.phase === 'away' ? 0.8 : 1;
+    const up = this.beds[this.theme] ? this.theme : (Object.keys(this.beds)[0] as CrowdTheme | undefined);
     for (const theme of Object.keys(this.beds) as CrowdTheme[]) {
-      this.beds[theme]!.out.gain.setTargetAtTime(theme === this.theme ? level * GROUNDS[theme].trim : 0, t, seconds / 3);
+      this.beds[theme]!.out.gain.setTargetAtTime(theme === up ? level * GROUNDS[theme].trim : 0, t, seconds / 3);
     }
   }
 
-  /** A soccer ground or a football stadium: its own crowd, and its own cheer. */
+  /** A soccer ground or a football stadium: its own crowd, and its own cheer (fetched now if it isn't in yet). */
   setTheme(theme: CrowdTheme): void {
     this.theme = theme;
+    if (this.ctx && !this.beds[theme]) void this.loadGround(this.ctx, theme);
     this.mixBeds();
   }
 

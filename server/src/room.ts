@@ -64,6 +64,8 @@ export interface Seatholder {
 
 type Phase =
   | { name: 'lobby' }
+  /** Both seated, the toss not started. A disconnect holds the chair. */
+  | { name: 'handshake' }
   | { name: 'toss_call'; caller: Seat }
   | { name: 'toss_choose'; winner: Seat }
   | { name: 'starting' }
@@ -98,6 +100,8 @@ export interface RoomOptions {
   now?: () => number;
   /** A uniform random source (the coin and the seed); tests pass a fixed one */
   random?: () => number;
+  /** A chair in the lobby was given up (they left, or didn't come back) */
+  onSeatGone?: (token: string) => void;
 }
 
 export class Room {
@@ -116,6 +120,9 @@ export class Room {
   private lastEmote: [number, number] = [0, 0];
   private readonly now: () => number;
   private readonly random: () => number;
+  private readonly onSeatGone: (token: string) => void;
+  /** Both have been told the other is here (their clients have left the lobby) */
+  private announced = false;
   /** When anything last happened here (rooms nobody uses are closed) */
   lastActive: number;
 
@@ -126,6 +133,7 @@ export class Room {
   ) {
     this.now = opts.now ?? Date.now;
     this.random = opts.random ?? Math.random;
+    this.onSeatGone = opts.onSeatGone ?? (() => undefined);
     this.lastActive = this.now();
   }
 
@@ -146,11 +154,9 @@ export class Room {
     this.seats[seat] = holder;
     this.touch();
     this.sendRoom();
-    if (this.full) {
-      this.sendTo(other(seat), { t: 'opponent', connected: true, name: holder.name });
-      this.sendTo(seat, { t: 'opponent', connected: true, name: this.seats[other(seat)]!.name });
-      this.later(600, () => this.startToss());
-    }
+    // Both chairs taken: the match is on, even during the short wait before the toss.
+    // A disconnect from here holds the chair, so a third player can't sit in it.
+    if (this.full) this.seatFull();
     return seat;
   }
 
@@ -159,71 +165,148 @@ export class Room {
     return this.seats[0]?.token === token ? 0 : this.seats[1]?.token === token ? 1 : null;
   }
 
+  /**
+   * Drop the chair only if `send` is still its live socket. A socket that was
+   * replaced (they came back, and the old one closed late) must not pause the match.
+   */
+  dropFrom(seat: Seat, send: Seatholder['send']): void {
+    const s = this.seats[seat];
+    if (!s || s.send !== send) return;
+    this.drop(seat);
+  }
+
   /** A player's connection dropped: their friend is told, and they have a while to come back. */
   drop(seat: Seat): void {
     const s = this.seats[seat];
-    if (!s) return;
+    if (!s || !s.send) return;
     s.send = null;
+    this.touch();
+    if (this.phase.name === 'end') return;
     if (this.phase.name === 'lobby') {
-      this.seats[seat] = null;
+      // Still waiting for a friend: hold the chair, then give it up.
+      this.hold(seat, 'release');
       return;
     }
-    if (this.phase.name === 'end') return;
     this.sendTo(other(seat), { t: 'opponent', connected: false });
-    // Hold everything until they're back.
+    // Hold everything until they're back. (The kick, or the toss, starts over.)
     this.clearTimers();
-    this.dropTimers[seat] = setTimeout(() => this.forfeit(seat), ONLINE.reconnectMs);
+    this.hold(seat, 'forfeit');
   }
 
   /** They're back (same token): catch them up and pick up where the match was (the kick in play starts over). */
   rejoin(seat: Seat, send: (m: ServerMsg) => void): void {
-    const s = this.seats[seat]!;
+    const s = this.seats[seat];
+    if (!s) return;
     s.send = send;
     this.touch();
     if (this.dropTimers[seat]) clearTimeout(this.dropTimers[seat]!);
     this.dropTimers[seat] = null;
     this.sendRoom();
     const them = this.seats[other(seat)];
-    if (them) {
+    if (them && this.announced) {
       this.sendTo(seat, { t: 'opponent', connected: !!them.send, name: them.name });
-      this.sendTo(other(seat), { t: 'opponent', connected: true, name: s.name });
+      if (them.send) this.sendTo(other(seat), { t: 'opponent', connected: true, name: s.name });
     }
-    if (!this.full || !this.seats[0]!.send || !this.seats[1]!.send) return;
+    if (this.phase.name === 'end') {
+      this.sendTo(seat, this.phase.last);
+      return;
+    }
+    if (!this.bothHere()) return;
     this.resume();
   }
 
   /** A player left for good. */
   leave(seat: Seat): void {
-    if (this.phase.name === 'lobby' || this.phase.name === 'end') {
-      this.seats[seat]!.send = null;
-      if (this.phase.name === 'end') this.sendTo(other(seat), { t: 'opponent', connected: false });
+    const s = this.seats[seat];
+    if (!s) return;
+    if (this.dropTimers[seat]) clearTimeout(this.dropTimers[seat]!);
+    this.dropTimers[seat] = null;
+    if (this.phase.name === 'lobby') {
+      this.onSeatGone(s.token);
+      this.seats[seat] = null;
       return;
     }
+    if (this.phase.name === 'end') {
+      s.send = null;
+      this.sendTo(other(seat), { t: 'opponent', connected: false });
+      return;
+    }
+    // Detach first, so a socket that immediately opens another room can't still
+    // receive this one's broadcasts (and have them land in the new match).
+    s.send = null;
     this.forfeit(seat);
+  }
+
+  // ── Seats, continued ─────────────────────────────────────────────────
+
+  /** Both chairs are taken. A disconnect now pauses the match instead of freeing a chair. */
+  private seatFull(): void {
+    this.phase = { name: 'handshake' };
+    for (const seat of [0, 1] as Seat[]) {
+      if (!this.seats[seat]?.send) this.hold(seat, 'forfeit');
+    }
+    this.maybeBegin();
+  }
+
+  /** Both sockets are up during the handshake: introduce them, then toss. */
+  private maybeBegin(): void {
+    if (this.phase.name !== 'handshake' || !this.bothHere()) return;
+    if (!this.announced) {
+      this.announced = true;
+      this.sendTo(0, { t: 'opponent', connected: true, name: this.seats[1]!.name });
+      this.sendTo(1, { t: 'opponent', connected: true, name: this.seats[0]!.name });
+    }
+    this.later(600, () => {
+      if (this.phase.name === 'handshake') this.startToss();
+    });
+  }
+
+  private bothHere(): boolean {
+    return !!this.seats[0]?.send && !!this.seats[1]?.send;
+  }
+
+  /** While they're gone: give the chair up (lobby), or hand the match to the other player. */
+  private hold(seat: Seat, mode: 'release' | 'forfeit'): void {
+    if (this.dropTimers[seat]) clearTimeout(this.dropTimers[seat]!);
+    this.dropTimers[seat] = setTimeout(() => {
+      this.dropTimers[seat] = null;
+      if (this.seats[seat]?.send) return;
+      if (mode === 'release') this.release(seat);
+      else this.forfeit(seat);
+    }, ONLINE.reconnectMs);
+  }
+
+  /** They never came back to a room that hadn't started. */
+  private release(seat: Seat): void {
+    if (this.phase.name !== 'lobby') return;
+    const s = this.seats[seat];
+    if (!s || s.send) return;
+    this.onSeatGone(s.token);
+    this.seats[seat] = null;
   }
 
   // ── Messages from players ────────────────────────────────────────────
 
   call(seat: Seat, side: CoinCall): void {
-    if (this.phase.name !== 'toss_call' || this.phase.caller !== seat) return;
+    if (!this.bothHere() || this.phase.name !== 'toss_call' || this.phase.caller !== seat) return;
     this.flip(side === 'tails' ? 'tails' : 'heads');
   }
 
   choose(seat: Seat, kickFirst: boolean): void {
-    if (this.phase.name !== 'toss_choose' || this.phase.winner !== seat) return;
+    if (!this.bothHere() || this.phase.name !== 'toss_choose' || this.phase.winner !== seat) return;
     this.chosen(seat, !!kickFirst);
   }
 
   wall(seat: Seat, wall: WallConfig | null): void {
     const k = this.kick;
-    if (this.phase.name !== 'wall' || !k || seat === k.shooter) return;
+    if (!this.bothHere() || this.phase.name !== 'wall' || !k || seat === k.shooter) return;
     const size = Math.round(clamp(wall?.size, 0, k.spot.maxWall));
     this.setWall(wall && size > 0 ? { size, offset: clamp(wall.offset, -3, 3) } : null);
   }
 
   shoot(seat: Seat, input: KickInput): void {
     const k = this.kick;
-    if (this.phase.name !== 'aim' || !k || seat !== k.shooter) return;
+    if (!this.bothHere() || this.phase.name !== 'aim' || !k || seat !== k.shooter) return;
     this.timeouts[seat] = 0;
     const fg = this.mode === 'fieldgoal';
     const maxY = fg ? FIELD_GOAL_LIMITS.maxAimY : MAX_AIM_Y;
@@ -265,7 +348,7 @@ export class Room {
   /** The keeper's flick. Trusted to be no earlier than it could have been sent (less a little jitter). */
   keep(seat: Seat, input: KeeperInput): void {
     const k = this.kick;
-    if (this.phase.name !== 'flight' || !k || seat === k.shooter || k.keeper || this.mode !== 'freekick') return;
+    if (!this.bothHere() || this.phase.name !== 'flight' || !k || seat === k.shooter || k.keeper || this.mode !== 'freekick') return;
     const sent = this.now() - (this.seats[seat]?.rtt ?? 100) / 2;
     const earliest = Math.ceil(((sent - k.contact - ONLINE.flickToleranceMs) / 1000) * TICK_RATE);
     const flickTick = Math.round(clamp(input?.flickTick, -RUNUP_TICKS, 4 * TICK_RATE));
@@ -286,7 +369,7 @@ export class Room {
   }
 
   ready(seat: Seat): void {
-    if (this.phase.name !== 'result') return;
+    if (!this.bothHere() || this.phase.name !== 'result') return;
     this.phase.ready.add(seat);
     if (this.phase.ready.size === 2) this.next();
   }
@@ -306,6 +389,7 @@ export class Room {
   // ── The match ────────────────────────────────────────────────────────
 
   private startToss(): void {
+    if (!this.bothHere()) return;
     this.clearTimers();
     this.match = null;
     this.kick = null;
@@ -322,7 +406,7 @@ export class Room {
   }
 
   private flip(call: CoinCall): void {
-    if (this.phase.name !== 'toss_call') return;
+    if (!this.bothHere() || this.phase.name !== 'toss_call') return;
     const caller = this.phase.caller;
     this.clearTimers();
     const side: CoinCall = this.random() < 0.5 ? 'heads' : 'tails';
@@ -335,7 +419,7 @@ export class Room {
   }
 
   private chosen(chooser: Seat, kickFirst: boolean): void {
-    if (this.phase.name !== 'toss_choose') return;
+    if (!this.bothHere() || this.phase.name !== 'toss_choose') return;
     this.clearTimers();
     const firstShooter: Seat = kickFirst ? chooser : other(chooser);
     this.match = createMatch(firstShooter);
@@ -345,7 +429,10 @@ export class Room {
   }
 
   private startKick(): void {
-    const match = this.match!;
+    const match = this.match;
+    if (!match || !this.bothHere()) return;
+    // Drop a kick that was already scheduled (the toss just finished, or this kick is starting over).
+    this.clearTimers();
     const shooter = nextShooter(match);
     if (shooter === null) return this.end(winner(match)!, false);
     const round = currentRound(match);
@@ -432,6 +519,8 @@ export class Room {
   /** Both back after a drop: carry on from where it was. */
   private resume(): void {
     switch (this.phase.name) {
+      case 'handshake':
+        return this.maybeBegin();
       case 'toss_call':
       case 'toss_choose':
         return this.startToss();
@@ -469,7 +558,15 @@ export class Room {
   }
 
   private later(ms: number, fn: () => void): void {
-    this.timers.push(setTimeout(fn, Math.max(0, ms)));
+    this.timers.push(
+      setTimeout(() => {
+        try {
+          fn();
+        } catch (err) {
+          console.error('room timer failed', err);
+        }
+      }, Math.max(0, ms)),
+    );
   }
 
   private clearTimers(): void {

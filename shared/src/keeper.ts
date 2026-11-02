@@ -49,6 +49,12 @@ const SHOULDER_HALF = 0.19;
 const HIP_HALF = 0.11;
 const LEG_LEN = 0.86;
 const FOOT_HALF = 0.26;
+/** Feet together behind a low ball coming straight at him (no nutmegs), and how quickly they close, m/s */
+const FOOT_HALF_CLOSED = 0.09;
+const FOOT_CLOSE_SPEED = 4;
+/** A ball is "at him" if it'll cross within this much of his middle, below this height */
+const AT_HIM_X = 0.5;
+const AT_HIM_Y = 0.7;
 const REST_HAND_Y = 1.02;
 const REST_HAND_DZ = 0.3;
 const REST_SPREAD = 0.3;
@@ -213,6 +219,8 @@ export class KeeperSim {
   private stepX = 0;
   private lift = 0;
   private spread = REST_SPREAD;
+  /** Half the gap between the feet (narrows to close the legs) */
+  private footHalf = FOOT_HALF;
   private frozen: Pose | null = null;
 
   /**
@@ -304,8 +312,8 @@ export class KeeperSim {
       bodyDir,
       hands,
       spread: this.spread,
-      footL: v3(pelvis.x + FOOT_HALF, footY, KEEPER_Z + 0.05),
-      footR: v3(pelvis.x - FOOT_HALF, footY, KEEPER_Z + 0.05),
+      footL: v3(pelvis.x + this.footHalf, footY, KEEPER_Z + 0.05),
+      footR: v3(pelvis.x - this.footHalf, footY, KEEPER_Z + 0.05),
     };
   }
 
@@ -390,10 +398,14 @@ export class KeeperSim {
     const maxSpeed = set ? this.p.setHandSpeed : this.p.stanceHandSpeed;
     let target = this.restHands();
     let spreadTarget = set ? SET_SPREAD : REST_SPREAD;
+    let footTarget = FOOT_HALF;
     if (ballVel.z < -1 && ballPos.z > KEEPER_Z && ballPos.z < TRACK_START_Z) {
       const tc = (ballPos.z - KEEPER_Z) / -ballVel.z;
       const px = ballPos.x + ballVel.x * tc;
       const py = ballPos.y + ballVel.y * tc - 0.5 * this.p.gravity * tc * tc;
+      // Low and straight at him: the legs close behind it.
+      const mid = this.startX + this.stepX;
+      if (py < AT_HIM_Y && px - mid < AT_HIM_X && mid - px < AT_HIM_X) footTarget = FOOT_HALF_CLOSED;
       target = v3(
         this.startX + clamp(px - this.startX, -reachX, reachX),
         clamp(py, 0.25, reachY),
@@ -415,5 +427,6 @@ export class KeeperSim {
     const wantLift = clamp((this.handC.y - 1.9) * 0.8, 0, 0.4);
     this.lift += clamp(wantLift - this.lift, -2 * DT, 2 * DT);
     this.spread += clamp(spreadTarget - this.spread, -2 * DT, 2 * DT);
+    this.footHalf += clamp(footTarget - this.footHalf, -FOOT_CLOSE_SPEED * DT, FOOT_CLOSE_SPEED * DT);
   }
 }
